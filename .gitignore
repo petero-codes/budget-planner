@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+
+# Environment (never commit secrets; keep .env.example)
+.env
+.env.*
+!.env.example
+
+# Next.js
+.next/
+out/
+
+# Build
+dist/
+build/
+coverage/
+
+# Logs
+logs/
+*.log
+
+# Cache / temp
+.cache/
+tmp/
+temp/
+cache/
+
+# Database
+*.sqlite
+*.db
+database.db
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Certificates / keys
+*.pem
+*.key
+*.crt
+*.p12
+
+# Cloud credentials
+service-account.json
+firebase-admin.json
+aws-credentials.json
+
+# Archives
+*.zip
+*.rar
+*.7z
+
+# TypeScript / Next misc
+*.tsbuildinfo
+next-env.d.ts
