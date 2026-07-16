@@ -1,5 +1,6 @@
 import type { PermissionCode } from "@/domain/value-objects/budget-status";
 import type { User } from "@/domain/entities";
+import { isDevelopmentToolkitEnabled } from "@/lib/development-toolkit-access";
 import {
   Bell,
   ClipboardCheck,
@@ -10,6 +11,10 @@ import {
   UserRound,
   BarChart3,
   Settings,
+  CalendarRange,
+  Landmark,
+  Wrench,
+  LifeBuoy,
 } from "lucide-react";
 
 export interface NavItem {
@@ -19,27 +24,74 @@ export interface NavItem {
   permission?: PermissionCode;
 }
 
-/**
- * Navigation is generated from permissions only.
- * Staff (SSO) never see Administration.
- * SystemAdmin only sees admin + audit (+ optional reports).
- */
-export function getNavItems(user: User): NavItem[] {
-  const isAdmin = user.roleCodes.includes("SystemAdmin");
+export type NavOptions = {
+  /** From /api/v1/me — env flag is not available in client bundles. */
+  developmentToolkitEnabled?: boolean;
+};
 
-  if (isAdmin) {
-    return [
+/**
+ * Navigation from roles/permissions.
+ * SystemAdmin: configuration (not budget approval by default).
+ * FinanceAdministrator: historical finance oversight.
+ * Staff: permission-scoped operational menus.
+ */
+export function getNavItems(user: User, options?: NavOptions): NavItem[] {
+  const isSystemAdmin = user.roleCodes.includes("SystemAdmin");
+  const isFinance = user.roleCodes.includes("FinanceAdministrator");
+  const toolkitOn =
+    options?.developmentToolkitEnabled ?? isDevelopmentToolkitEnabled();
+
+  if (isSystemAdmin) {
+    const items: NavItem[] = [
       { href: "/admin", label: "Administration", icon: Settings, permission: "admin.users" },
+      {
+        href: "/admin/support",
+        label: "Support Issues",
+        icon: LifeBuoy,
+        permission: "admin.users",
+      },
+      // FY lifecycle lives under Administration → Financial Years tab (avoid duplicate nav).
       { href: "/audit", label: "Audit Trail", icon: ScrollText, permission: "audit.view" },
-      { href: "/reports", label: "Reports", icon: BarChart3, permission: "report.view" },
       { href: "/profile", label: "My Profile", icon: UserRound },
-    ].filter(
+    ];
+    if (toolkitOn) {
+      items.splice(1, 0, {
+        href: "/admin/development",
+        label: "Development Tools",
+        icon: Wrench,
+      });
+    }
+    return items.filter(
       (item) =>
         !item.permission || user.permissionCodes.includes(item.permission)
     );
   }
 
-  // Staff dashboard — only what this user is allowed to see
+  if (isFinance) {
+    const items: NavItem[] = [
+      {
+        href: "/finance",
+        label: "Finance Dashboard",
+        icon: Landmark,
+        permission: "finance.view",
+      },
+      {
+        href: "/admin/fiscal-years",
+        label: "Financial Years",
+        icon: CalendarRange,
+        permission: "fy.manage",
+      },
+      { href: "/reports", label: "Reports", icon: BarChart3, permission: "report.view" },
+      { href: "/audit", label: "Audit Trail", icon: ScrollText, permission: "audit.view" },
+      { href: "/support", label: "My Issues", icon: LifeBuoy },
+      { href: "/profile", label: "My Profile", icon: UserRound },
+    ];
+    return items.filter(
+      (item) =>
+        !item.permission || user.permissionCodes.includes(item.permission)
+    );
+  }
+
   const items: NavItem[] = [
     { href: "/home", label: "My Dashboard", icon: Home },
     {
@@ -73,6 +125,7 @@ export function getNavItems(user: User): NavItem[] {
       permission: "audit.view",
     },
     { href: "/notifications", label: "Notifications", icon: Bell },
+    { href: "/support", label: "My Issues", icon: LifeBuoy },
     { href: "/profile", label: "My Profile", icon: UserRound },
   ];
 

@@ -6,64 +6,99 @@ import type {
   Position,
   User,
 } from "@/domain/entities";
+import { seedUuid } from "@/infrastructure/id";
 
 export const IDS = {
-  deptIct: "dept-ict",
-  fy2027: "fy-2027",
-  posGm: "pos-gm",
-  posMgrNet: "pos-mgr-net",
-  posMgrSys: "pos-mgr-sys",
-  posMgrRel: "pos-mgr-rel",
-  posAsst: "pos-asst",
-  joyce: "user-joyce",
-  geofrey: "user-geofrey",
-  georgina: "user-georgina",
-  peter: "user-peter",
-  edwin: "user-edwin",
-  esther: "user-esther",
-  western: "user-western",
-  peterNdegwa: "user-peter-ndegwa",
-  mary: "user-mary",
-  eric: "user-eric",
-  george: "user-george",
-  patrick: "user-patrick",
-  ruth: "user-ruth",
-  chris: "user-chris",
-  admin: "user-admin",
-  posAdmin: "pos-admin",
-  ccGm: "cc-kgn70090",
-  ccNet: "cc-kgn70110",
-  ccSys: "cc-kgn70120",
-  ccRel: "cc-kgn70010",
-  ccSysAdmin: "cc-kgn70020",
-  ccNetAdmin: "cc-kgn70050",
-  ccWestern: "cc-kgn700xx-wr",
-  ccEnt: "cc-kgn70040",
-  ccInd: "cc-kgn70070",
-  ccWeb: "cc-kgn70100",
-  ccSupport: "cc-kgn70060",
-  ccRelMgmt: "cc-kgn70030",
-  ccProjects: "cc-kgn70130",
-  ccInfoSec: "cc-kgn70080",
+  deptIct: seedUuid("dept-ict"),
+  fy2026: seedUuid("fy-2026"),
+  fy2027: seedUuid("fy-2027"),
+  posGm: seedUuid("pos-gm"),
+  posMgrNet: seedUuid("pos-mgr-net"),
+  posMgrSys: seedUuid("pos-mgr-sys"),
+  posMgrRel: seedUuid("pos-mgr-rel"),
+  posAsst: seedUuid("pos-asst"),
+  posAdmin: seedUuid("pos-admin"),
+  posFinance: seedUuid("pos-finance"),
+  joyce: seedUuid("user-joyce"),
+  geofrey: seedUuid("user-geofrey"),
+  georgina: seedUuid("user-georgina"),
+  peter: seedUuid("user-peter"),
+  edwin: seedUuid("user-edwin"),
+  esther: seedUuid("user-esther"),
+  peterNdegwa: seedUuid("user-peter-ndegwa"),
+  mary: seedUuid("user-mary"),
+  eric: seedUuid("user-eric"),
+  george: seedUuid("user-george"),
+  patrick: seedUuid("user-patrick"),
+  ruth: seedUuid("user-ruth"),
+  chris: seedUuid("user-chris"),
+  admin: seedUuid("user-admin"),
+  finance: seedUuid("user-finance"),
+  ccGm: seedUuid("cc-kgn70090"),
+  ccNet: seedUuid("cc-kgn70110"),
+  ccSys: seedUuid("cc-kgn70120"),
+  ccRel: seedUuid("cc-kgn70010"),
+  ccSysAdmin: seedUuid("cc-kgn70020"),
+  ccNetAdmin: seedUuid("cc-kgn70050"),
+  ccEnt: seedUuid("cc-kgn70040"),
+  ccInd: seedUuid("cc-kgn70070"),
+  ccWeb: seedUuid("cc-kgn70100"),
+  ccSupport: seedUuid("cc-kgn70060"),
+  ccRelMgmt: seedUuid("cc-kgn70030"),
+  ccProjects: seedUuid("cc-kgn70130"),
+  ccInfoSec: seedUuid("cc-kgn70080"),
 } as const;
 
-const submitApprove = [
+const managerPerms = [
   "budget.create",
   "budget.submit",
   "budget.approve",
-  "budget.reject",
   "report.view",
 ] as const;
 
-/** Root GM: operational + department audit (not SystemAdmin). */
-const gmPerms = [...submitApprove, "audit.view"] as const;
+/** Root GM: may permanently reject; operational + department audit. */
+const gmPerms = [...managerPerms, "budget.reject", "audit.view"] as const;
 
 const submitOnly = ["budget.create", "budget.submit"] as const;
 
-const adminOnly = ["admin.users", "audit.view", "report.view"] as const;
+const adminOnly = [
+  "admin.users",
+  "admin.masterdata",
+  "audit.view",
+  "fy.manage",
+] as const;
+
+const financeOnly = [
+  "finance.view",
+  "finance.claim",
+  "finance.finalize",
+  "finance.return",
+  "report.view",
+  "report.export",
+  "audit.view",
+  "fy.manage",
+] as const;
+
+export const roleDefinitions = [
+  { code: "BudgetSubmitter", name: "Budget Submitter" },
+  { code: "BudgetApprover", name: "Budget Approver" },
+  { code: "GeneralManager", name: "General Manager" },
+  { code: "SystemAdmin", name: "System Administrator" },
+  { code: "FinanceAdministrator", name: "Finance Administrator" },
+  { code: "AuditViewer", name: "Audit Viewer" },
+] as const;
+
+export const permissionCodesByRole: Record<string, readonly string[]> = {
+  BudgetSubmitter: submitOnly,
+  BudgetApprover: managerPerms,
+  GeneralManager: gmPerms,
+  SystemAdmin: adminOnly,
+  FinanceAdministrator: financeOnly,
+  AuditViewer: ["audit.view"],
+};
 
 export const departments: Department[] = [
-  { id: IDS.deptIct, name: "ICT", code: "ICT" },
+  { id: IDS.deptIct, name: "ICT", code: "ICT", isActive: true },
 ];
 
 export const positions: Position[] = [
@@ -98,6 +133,12 @@ export const positions: Position[] = [
     positionCode: "SYSADMIN",
     level: 0,
   },
+  {
+    id: IDS.posFinance,
+    title: "Finance Administrator",
+    positionCode: "FINADMIN",
+    level: 0,
+  },
 ];
 
 export const costCenters: CostCenter[] = [
@@ -107,6 +148,8 @@ export const costCenters: CostCenter[] = [
     sapCostCenterCode: "606509",
     name: "General Manager, ICT",
     departmentId: IDS.deptIct,
+    managerId: IDS.joyce,
+    responsiblePersonId: IDS.joyce,
     isActive: true,
   },
   {
@@ -115,6 +158,8 @@ export const costCenters: CostCenter[] = [
     sapCostCenterCode: "606511",
     name: "Network and Infrastructure",
     departmentId: IDS.deptIct,
+    managerId: IDS.geofrey,
+    responsiblePersonId: IDS.geofrey,
     isActive: true,
   },
   {
@@ -123,6 +168,8 @@ export const costCenters: CostCenter[] = [
     sapCostCenterCode: "606512",
     name: "Business Application",
     departmentId: IDS.deptIct,
+    managerId: IDS.georgina,
+    responsiblePersonId: IDS.georgina,
     isActive: true,
   },
   {
@@ -131,6 +178,8 @@ export const costCenters: CostCenter[] = [
     sapCostCenterCode: "606501",
     name: "Relationship Management and Technical Support",
     departmentId: IDS.deptIct,
+    managerId: IDS.peter,
+    responsiblePersonId: IDS.peter,
     isActive: true,
   },
   {
@@ -139,6 +188,8 @@ export const costCenters: CostCenter[] = [
     sapCostCenterCode: "606502",
     name: "System Architecture and Admin",
     departmentId: IDS.deptIct,
+    managerId: IDS.geofrey,
+    responsiblePersonId: IDS.edwin,
     isActive: true,
   },
   {
@@ -147,14 +198,8 @@ export const costCenters: CostCenter[] = [
     sapCostCenterCode: "606505",
     name: "Networks & Telcomms",
     departmentId: IDS.deptIct,
-    isActive: true,
-  },
-  {
-    id: IDS.ccWestern,
-    code: "KGN70025",
-    sapCostCenterCode: "606514",
-    name: "Western Region",
-    departmentId: IDS.deptIct,
+    managerId: IDS.geofrey,
+    responsiblePersonId: IDS.esther,
     isActive: true,
   },
   {
@@ -163,6 +208,8 @@ export const costCenters: CostCenter[] = [
     sapCostCenterCode: "606504",
     name: "Enterprise Apps",
     departmentId: IDS.deptIct,
+    managerId: IDS.georgina,
+    responsiblePersonId: IDS.peterNdegwa,
     isActive: true,
   },
   {
@@ -171,6 +218,8 @@ export const costCenters: CostCenter[] = [
     sapCostCenterCode: "606507",
     name: "Industrial Systems",
     departmentId: IDS.deptIct,
+    managerId: IDS.georgina,
+    responsiblePersonId: IDS.mary,
     isActive: true,
   },
   {
@@ -179,6 +228,8 @@ export const costCenters: CostCenter[] = [
     sapCostCenterCode: "606510",
     name: "Systems Integration & Web Technologies",
     departmentId: IDS.deptIct,
+    managerId: IDS.georgina,
+    responsiblePersonId: IDS.eric,
     isActive: true,
   },
   {
@@ -187,6 +238,8 @@ export const costCenters: CostCenter[] = [
     sapCostCenterCode: "606506",
     name: "Support Services",
     departmentId: IDS.deptIct,
+    managerId: IDS.peter,
+    responsiblePersonId: IDS.george,
     isActive: true,
   },
   {
@@ -195,6 +248,8 @@ export const costCenters: CostCenter[] = [
     sapCostCenterCode: "606503",
     name: "Relationship Mgmt",
     departmentId: IDS.deptIct,
+    managerId: IDS.peter,
+    responsiblePersonId: IDS.patrick,
     isActive: true,
   },
   {
@@ -203,6 +258,8 @@ export const costCenters: CostCenter[] = [
     sapCostCenterCode: "606513",
     name: "Project Delivery & Reporting",
     departmentId: IDS.deptIct,
+    managerId: IDS.peter,
+    responsiblePersonId: IDS.ruth,
     isActive: true,
   },
   {
@@ -211,6 +268,8 @@ export const costCenters: CostCenter[] = [
     sapCostCenterCode: "606508",
     name: "Information Security",
     departmentId: IDS.deptIct,
+    managerId: IDS.joyce,
+    responsiblePersonId: IDS.chris,
     isActive: true,
   },
 ];
@@ -248,7 +307,7 @@ export const users: User[] = [
     null,
     IDS.ccGm,
     [...gmPerms],
-    ["BudgetSubmitter", "BudgetApprover"]
+    ["BudgetSubmitter", "BudgetApprover", "GeneralManager"]
   ),
   user(
     IDS.geofrey,
@@ -257,7 +316,7 @@ export const users: User[] = [
     IDS.posMgrNet,
     IDS.joyce,
     IDS.ccNet,
-    [...submitApprove],
+    [...managerPerms],
     ["BudgetSubmitter", "BudgetApprover"]
   ),
   user(
@@ -267,7 +326,7 @@ export const users: User[] = [
     IDS.posMgrSys,
     IDS.joyce,
     IDS.ccSys,
-    [...submitApprove],
+    [...managerPerms],
     ["BudgetSubmitter", "BudgetApprover"]
   ),
   user(
@@ -277,7 +336,7 @@ export const users: User[] = [
     IDS.posMgrRel,
     IDS.joyce,
     IDS.ccRel,
-    [...submitApprove],
+    [...managerPerms],
     ["BudgetSubmitter", "BudgetApprover"]
   ),
   user(
@@ -297,16 +356,6 @@ export const users: User[] = [
     IDS.posAsst,
     IDS.geofrey,
     IDS.ccNetAdmin,
-    [...submitOnly],
-    ["BudgetSubmitter"]
-  ),
-  user(
-    IDS.western,
-    "Western Region Holder",
-    "western.region@kengen.co.ke",
-    IDS.posAsst,
-    IDS.geofrey,
-    IDS.ccWestern,
     [...submitOnly],
     ["BudgetSubmitter"]
   ),
@@ -390,27 +439,156 @@ export const users: User[] = [
     [...adminOnly],
     ["SystemAdmin"]
   ),
+  user(
+    IDS.finance,
+    "Finance Administrator",
+    "finance.admin@kengen.co.ke",
+    IDS.posFinance,
+    null,
+    IDS.ccGm,
+    [...financeOnly],
+    ["FinanceAdministrator"]
+  ),
 ];
 
 export const fiscalYears: FiscalYear[] = [
+  {
+    id: IDS.fy2026,
+    yearLabel: 2026,
+    startDate: "2025-07-01",
+    endDate: "2026-06-30",
+    status: "Closed",
+    isLocked: true,
+    isCurrent: false,
+  },
   {
     id: IDS.fy2027,
     yearLabel: 2027,
     startDate: "2026-07-01",
     endDate: "2027-06-30",
+    status: "Open",
     isLocked: false,
+    isCurrent: true,
   },
 ];
 
-export const glAccounts: GlAccount[] = [
-  { id: "gl-860206", code: "860206", description: "SOFTWARE LICENCES", isActive: true },
-  { id: "gl-860601", code: "860601", description: "SAP MAINTENANCE EXPENSES", isActive: true },
-  { id: "gl-860802", code: "860802", description: "TELEPHONES", isActive: true },
-  { id: "gl-820406", code: "820406", description: "TRAINING", isActive: true },
-  { id: "gl-820407", code: "820407", description: "TEAM BUILDING", isActive: true },
-  { id: "gl-810601", code: "810601", description: "OFFICE EQUIPMENT, FURNITURE & CONSUMABLES", isActive: true },
-  { id: "gl-810602", code: "810602", description: "STATIONARY", isActive: true },
-  { id: "gl-860408", code: "860408", description: "CONSULTANTS FEES", isActive: true },
-  { id: "gl-860108", code: "860108", description: "AIR TRAVEL EXPENSES", isActive: true },
-  { id: "gl-820101", code: "820101", description: "ANNUAL SALARIES", isActive: true },
+/** GL catalog from the KenGen budget workbook (duplicate codes deduped, first wins). */
+const GL_CATALOG: [string, string][] = [
+  ["810302", "PREMIUM (MOTOR VEHICLE)"],
+  ["810401", "BULK LUBRICANTS EXPENSES ACCOUNT"],
+  ["810402", "OTHERS (FUELS & LUBRICANTS)"],
+  ["810801", "MACHINE SPARES & TOOLS"],
+  ["810802", "MOTOR VEHICLE SPARES & TOOLS"],
+  ["810806", "DRILLING CHEMICALS"],
+  ["810601", "OFFICE EQUIPMENT, FURNITURE & CONSUMABLES"],
+  ["810602", "STATIONARY"],
+  ["810603", "CHEMICALS"],
+  ["810604", "BUILDING MATERIALS"],
+  ["810608", "ELECTRICAL & ELECTRONIC MATERIALS"],
+  ["810606", "SAFETY MATERIALS"],
+  ["810607", "WELDING MATERIALS"],
+  ["820101", "ANNUAL SALARIES"],
+  ["820103", "EXTRA HOURS OVER TIME"],
+  ["820104", "CALL OUT"],
+  ["820108", "HARDSHIP"],
+  ["820111", "CASUALS"],
+  ["820114", "HOUSE ALLOWANCE"],
+  ["820117", "LEAVE ALLOWANCE"],
+  ["820118", "SPECIAL ALLOWANCE"],
+  ["820120", "STAND BY ALLOWANCE"],
+  ["820143", "HOUSING LEVY"],
+  ["820144", "CAMP ALLOWANCE"],
+  ["820201", "GROUP PERSONAL ACC.INSURANCE PREMIUM"],
+  ["820202", "SPORTS WEAR"],
+  ["820203", "ELECTRICITY SOLD TO EMPLOYEES"],
+  ["820208", "UNIFORMS & PROTECTIVE CLOTHING"],
+  ["820206", "WORKMEN COMPENSATION"],
+  ["820209", "MEDICAL EXPENSES -ACCIDENTS"],
+  ["820210", "SPORTS MEETINGS"],
+  ["820211", "LONG SERVICE AWARDS"],
+  ["820212", "CLUBS & HALLS"],
+  ["820213", "OTHERS -WELFARE & BENEFITS"],
+  ["820308", "VISA PROCESSING FEES"],
+  ["820401", "TUITION"],
+  ["820403", "TRADE TESTS"],
+  ["820404", "TRAINING CATERING & OTHERS"],
+  ["820408", "TRAINING MATERIALS"],
+  ["820406", "TRAINING"],
+  ["820407", "TEAM BUILDING"],
+  ["820410", "TRAINING LIBRARY BOOKS"],
+  ["820411", "HIV/AIDS TRAINING & AWARENESS"],
+  ["820412", "GENDER ACTIVITIES"],
+  ["820413", "DISABILITY MAINSTREAMING"],
+  ["820414", "DRUG AND SUBSTANCE"],
+  ["820418", "INTERNSHIP SUBSISTENCE ALLOWANCE"],
+  ["830101", "DEPRECIATION BUILDINGS"],
+  ["830102", "DEPRECIATION TRANSMISSION"],
+  ["830103", "DEPRECIATION PLANT & MACHINERY"],
+  ["830104", "DEPRECIATION VEHICLES"],
+  ["830108", "DEPRECIATION FURNITURE & FITTING"],
+  ["830106", "DEPRECIATION OFFICE MACHINES"],
+  ["830107", "DEPRECIATION TOOLS & IMPLEMENTS"],
+  ["830109", "LVA DEPRECIATION OFFICE MACHINES"],
+  ["830110", "LVA DEPRECIATION TOOLS & IMPLEMENTS"],
+  ["830201", "AMORTIZATION-LAND OPERATING LEASE"],
+  ["830301", "AMORTIZATION-INTANGIBLE ASSETS"],
+  ["830401", "IFRS16-Depreciation Expense"],
+  ["840101", "FIRE & CONSEQUENTIAL LOSS INSURANCE"],
+  ["840102", "FIDELITY CASH INSURANCE"],
+  ["840103", "ENGINEERING BREAKDOWN INSURANCE"],
+  ["840106", "MOTOR VEHICLE INSURANCE"],
+  ["840108", "INSURANCE GENERAL"],
+  ["880101", "TURKWEL MAINTENANCE/CATCHMENT CONSERVATION"],
+  ["880102", "KIAMBERE/MASINGA DAM MAINT & CONSERVATION"],
+  ["860101", "SCHEME VEHICLE-MILEAGE"],
+  ["860102", "HIRE VEHICLES"],
+  ["860103", "CHARTERED AEROPLANE CHARGES"],
+  ["860104", "PRIVATE VEHICLES-MILEAGE"],
+  ["860108", "LICENCES"],
+  ["860106", "POOL VEHICLES-EXPENSES"],
+  ["860107", "INTERNAL TRANSPORT SERVICES"],
+  ["860201", "COUNCIL TAXES"],
+  ["860202", "GENERATION LICENCES"],
+  ["860203", "TRANPORT AND VEHICLE LICENCES"],
+  ["860204", "OTHER LICENCES"],
+  ["860206", "SOFTWARE LICENCES"],
+  ["860207", "CUSTOMS & IMPORT DUTIES"],
+  ["860301", "DIRECTOR'S FEES"],
+  ["860302", "DIRECTOR`S SITTING ALLOWANCE"],
+  ["860303", "DIRECTOR'S LOGISTICAL EXPENSES"],
+  ["860304", "HONORARIUM"],
+  ["860401", "ENTERTAINMENT"],
+  ["860408", "CONSULTANTS FEES"],
+  ["860406", "AUDIT FEES"],
+  ["860801", "POSTAGE & TELEGRAMS"],
+  ["860802", "TELEPHONES"],
+  ["860803", "OFFICE MACHINE RENTALS"],
+  ["860804", "NEWSPAPER & PERIODICAL"],
+  ["860808", "OFFICE EXPENSES - GENERAL"],
+  ["860806", "RENTS"],
+  ["860810", "SECURITY RELATED EXPENSE"],
+  ["860811", "SAFETY"],
+  ["860812", "CLEANING SERVICES"],
+  ["860813", "WATER - BILLS"],
+  ["860814", "ELECTRICITY"],
+  ["860818", "THIRD PARTY SERVICES CONTRACTS"],
+  ["860816", "SECURITY & SURVILLANCE"],
+  ["860817", "OTHER EXPENSES"],
+  ["860819", "REPAIRS AND MAINTENANCE- HOUSES"],
+  ["860820", "Security Survey"],
+  ["860821", "Integrity Testing"],
+  ["860822", "Security Awareness"],
+  ["860823", "INVESTIGATIONS EXPENSES"],
+  ["860827", "STANDARD LEVY"],
+  ["860601", "REPRESENTATION"],
+  ["860701", "REPAIRS AND MAINTENANCE- OTHERS"],
+  ["860703", "REPAIRS AND MAINTENANCE-VEHICLES"],
+  ["860901", "SUBCRIPTIONS"],
 ];
+
+export const glAccounts: GlAccount[] = GL_CATALOG.map(([code, description]) => ({
+  id: seedUuid(`gl-${code}`),
+  code,
+  description,
+  isActive: true,
+}));

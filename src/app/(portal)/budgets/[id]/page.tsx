@@ -1,58 +1,127 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
+import {
+  Check,
+  Download,
+  GitBranch,
+  Pencil,
+  RotateCcw,
+  Send,
+  X,
+} from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusChip } from "@/components/shared/status-chip";
-import {
-  approvalService,
-  budgetPlanService,
-  getCurrentUser,
-  repos,
-} from "@/infrastructure/di";
-import type { BudgetPlan, GlAccount, User } from "@/domain/entities";
+import { ApprovalTimeline } from "@/components/budget/approval-timeline";
+import { ActionLink, Button } from "@/components/ui/button";
+import { ApiError, apiGet, apiSend } from "@/lib/client-api";
+import type {
+  ApprovalHistoryEntry,
+  BudgetPlan,
+  GlAccount,
+  User,
+  WorkflowHistoryEntry,
+} from "@/domain/entities";
+import type { VersionCompareResult } from "@/application/version-compare-service";
 import { formatCurrency } from "@/lib/utils";
-import { buildSapCsv } from "@/infrastructure/export/sap-csv-writer";
-import { IDS } from "@/infrastructure/repositories/mock/seed";
+import { latestApprovalOutcome } from "@/domain/rules/approval-outcome";
+import { resolveOrgRole } from "@/domain/rules/org-role";
+import { reviewStageLabel } from "@/domain/value-objects/budget-status";
+import type { OrgRole } from "@/domain/rules/org-role";
+
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
 
 export default function BudgetDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const id = String(params.id);
+  const id = String(params?.id ?? "");
   const [plan, setPlan] = useState<BudgetPlan | null>(null);
+  const [history, setHistory] = useState<ApprovalHistoryEntry[]>([]);
+  const [workflow, setWorkflow] = useState<WorkflowHistoryEntry[]>([]);
+  const [compare, setCompare] = useState<VersionCompareResult | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [orgRole, setOrgRole] = useState<OrgRole | null>(null);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [refUsers, setRefUsers] = useState<User[]>([]);
   const [glMap, setGlMap] = useState<Map<string, GlAccount>>(new Map());
   const [error, setError] = useState<string | null>(null);
-  const [rejectComment, setRejectComment] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
+  const [comment, setComment] = useState("");
+  const [approveComment, setApproveComment] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function reload() {
-    const current = await getCurrentUser();
-    setUser(current);
+  const reload = useCallback(async () => {
     try {
-      const p = await budgetPlanService.getById(id, current);
-      setPlan(p);
-      const gls = await repos.glAccounts.getAll();
-      setGlMap(new Map(gls.map((g) => [g.id, g])));
+      const me = await apiGet<{
+        user: User;
+        orgRole: OrgRole;
+      }>("/api/v1/me");
+      setUser(me.user);
+      setOrgRole(me.orgRole);
+      const detail = await apiGet<{
+        plan: BudgetPlan;
+        history: ApprovalHistoryEntry[];
+      }>(`/api/v1/budget-plans/${id}/history`);
+      setPlan(detail.plan);
+      setHistory(detail.history);
+      const [wf, cmp] = await Promise.all([
+        apiGet<WorkflowHistoryEntry[]>(
+          `/api/v1/budget-plans/${id}/workflow`
+        ).catch(() => [] as WorkflowHistoryEntry[]),
+        apiGet<VersionCompareResult>(
+          `/api/v1/budget-plans/${id}/compare`
+        ).catch(() => null),
+      ]);
+      setWorkflow(wf);
+      setCompare(cmp);
+      const ref = await apiGet<{ users: User[]; glAccounts: GlAccount[] }>(
+        "/api/v1/reference"
+      );
+      setNames(Object.fromEntries(ref.users.map((u) => [u.id, u.name])));
+      setRefUsers(ref.users);
+      setGlMap(new Map(ref.glAccounts.map((g) => [g.id, g])));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Access denied");
-      if (String(e).includes("access")) {
+      if (
+        e instanceof ApiError &&
+        (e.status === 403 ||
+          e.message.toLowerCase().includes("access") ||
+          e.message.toLowerCase().includes("forbidden"))
+      ) {
         router.push("/access-denied");
       }
     }
-  }
+  }, [id, router]);
 
   useEffect(() => {
     void reload();
-  }, [id]);
+  }, [reload]);
 
   async function onApprove() {
-    if (!user || !plan) return;
+    if (!plan) return;
+    if (
+      !window.confirm(
+        "Approve this budget and advance it to the next step?"
+      )
+    ) {
+      return;
+    }
     setBusy(true);
+    setError(null);
     try {
-      await approvalService.approve(plan.id, user);
+      await apiSend(`/api/v1/budget-plans/${plan.id}/approve`, "POST", {
+        comment: approveComment.trim() || null,
+      });
+      setApproveComment("");
+      setNotice("Budget approved.");
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Approve failed");
@@ -61,15 +130,49 @@ export default function BudgetDetailPage() {
     }
   }
 
-  async function onReject() {
-    if (!user || !plan) return;
-    if (!rejectComment.trim()) {
-      setError("Rejection reason is required");
+  async function onReturn() {
+    if (!plan) return;
+    if (!comment.trim()) {
+      setError("A reason is required to return for revision");
       return;
     }
     setBusy(true);
+    setError(null);
     try {
-      await approvalService.reject(plan.id, user, rejectComment);
+      await apiSend(`/api/v1/budget-plans/${plan.id}/return`, "POST", {
+        reason: comment,
+      });
+      setComment("");
+      setNotice("Budget returned for revision.");
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Return failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onReject() {
+    if (!plan) return;
+    if (!comment.trim()) {
+      setError("Rejection reason is required");
+      return;
+    }
+    if (
+      !window.confirm(
+        "Reject permanently? The owner cannot edit or resubmit this budget."
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await apiSend(`/api/v1/budget-plans/${plan.id}/reject`, "POST", {
+        reason: comment,
+      });
+      setComment("");
+      setNotice("Budget rejected.");
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Reject failed");
@@ -78,18 +181,41 @@ export default function BudgetDetailPage() {
     }
   }
 
+  async function onResubmit() {
+    if (!plan) return;
+    if (!window.confirm("Resubmit this budget for approval?")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await apiSend(`/api/v1/budget-plans/${plan.id}/submit`, "POST");
+      setNotice("Budget resubmitted for approval.");
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Resubmit failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function downloadCsv() {
     if (!plan) return;
     void (async () => {
-      const cc = await repos.costCenters.getById(plan.costCenterId);
-      const fy = await repos.fiscalYears.getById(plan.fiscalYearId);
-      if (!cc || !fy) return;
-      const csv = buildSapCsv(plan, cc, glMap, fy.yearLabel);
-      const blob = new Blob([csv], { type: "text/csv" });
+      const res = await fetch(`/api/v1/budget-plans/${plan.id}/sap-export`, {
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        setError(`Export failed (${res.status})`);
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
+      const filename = match?.[1] ?? `sap-budget-${plan.id}.csv`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `sap-budget-${cc.code}-${fy.yearLabel}.csv`;
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
     })();
@@ -100,50 +226,211 @@ export default function BudgetDetailPage() {
   }
 
   const total = plan.lines.reduce((s, l) => s + l.amount, 0);
-  const canApprove =
-    plan.status === "InApproval" &&
-    plan.currentApproverId === user.id &&
-    user.permissionCodes.includes("budget.approve");
+  const isOwner = plan.ownerId === user.id;
+  const isCurrentApprover =
+    plan.status === "InApproval" && plan.currentApproverId === user.id;
+  const canReview =
+    isCurrentApprover && user.permissionCodes.includes("budget.approve");
+  const canReturn = canReview;
+  const canReject =
+    canReview &&
+    orgRole === "gm" &&
+    user.permissionCodes.includes("budget.reject");
+  const canEdit =
+    isOwner &&
+    (plan.status === "Draft" || plan.status === "ReturnedForRevision");
+  const canResubmit =
+    isOwner &&
+    plan.status === "ReturnedForRevision" &&
+    user.permissionCodes.includes("budget.submit");
+  const outcome = latestApprovalOutcome(history);
+  const currentApprover = plan.currentApproverId
+    ? refUsers.find((u) => u.id === plan.currentApproverId)
+    : null;
+  const currentApproverRole = currentApprover
+    ? resolveOrgRole(currentApprover)
+    : null;
+  const stageLabel =
+    plan.status === "InApproval"
+      ? reviewStageLabel(
+          plan.status,
+          currentApproverRole === "gm" || currentApproverRole === "manager"
+            ? currentApproverRole
+            : null
+        )
+      : null;
 
   return (
     <div>
       <PageHeader
-        title="Budget Review"
-        description={`${plan.budgetType} · ${plan.id}`}
+        title="Budget Details"
+        description={
+          plan.versionLabel
+            ? `${plan.versionLabel} · ${plan.budgetType}`
+            : `${plan.budgetType} · ${plan.id}`
+        }
         actions={
-          <div className="flex gap-2">
-            {plan.status === "Draft" && plan.ownerId === user.id ? (
-              <Link
+          <div className="flex flex-wrap gap-2">
+            {canEdit ? (
+              <ActionLink
                 href={`/budgets/create?edit=${plan.id}`}
-                className="rounded border px-3 py-1.5 text-body"
+                variant={
+                  plan.status === "ReturnedForRevision"
+                    ? "warning"
+                    : "secondary"
+                }
+                icon={Pencil}
+                size="default"
               >
-                Edit Draft
-              </Link>
+                {plan.status === "ReturnedForRevision"
+                  ? "Edit & revise"
+                  : "Edit Draft"}
+              </ActionLink>
             ) : null}
-            {plan.status === "Approved" ? (
-              <button
+            {canResubmit ? (
+              <Button
                 type="button"
-                onClick={downloadCsv}
-                className="rounded bg-kengen-navy px-3 py-1.5 text-body text-white"
+                variant="primary"
+                icon={Send}
+                loading={busy}
+                disabled={busy}
+                onClick={() => void onResubmit()}
               >
-                Export SAP CSV
-              </button>
+                Resubmit
+              </Button>
+            ) : null}
+            {(plan.status === "Finalized" || plan.status === "Approved") &&
+            isOwner &&
+            user.permissionCodes.includes("budget.create") ? (
+              <Button
+                type="button"
+                variant="primary"
+                icon={GitBranch}
+                loading={busy}
+                disabled={busy}
+                onClick={() => {
+                  const reason = window.prompt("Amendment reason (required):");
+                  if (!reason?.trim()) return;
+                  void (async () => {
+                    setBusy(true);
+                    try {
+                      const next = await apiSend<BudgetPlan>(
+                        `/api/v1/budget-plans/${plan.id}/amend`,
+                        "POST",
+                        { reason: reason.trim() }
+                      );
+                      router.push(`/budgets/${next.id}`);
+                    } catch (e) {
+                      setError(
+                        e instanceof Error ? e.message : "Amendment failed"
+                      );
+                    } finally {
+                      setBusy(false);
+                    }
+                  })();
+                }}
+              >
+                Create Amendment
+              </Button>
+            ) : null}
+            {(plan.status === "Finalized" || plan.status === "Approved") &&
+            user?.permissionCodes.includes("report.export") ? (
+              <Button
+                type="button"
+                variant="secondary"
+                icon={Download}
+                onClick={downloadCsv}
+              >
+                Export SAP Package
+              </Button>
             ) : null}
           </div>
         }
       />
+
       {error ? (
         <div className="mb-3 rounded border border-kengen-red/40 bg-red-50 px-3 py-2 text-body text-kengen-red">
           {error}
         </div>
       ) : null}
+      {notice ? (
+        <div className="mb-3 rounded border border-kengen-green/40 bg-[rgba(0,105,62,0.08)] px-3 py-2 text-body text-kengen-green">
+          {notice}
+        </div>
+      ) : null}
+
+      {plan.status === "Claimed" ? (
+        <div className="mb-3 rounded border border-indigo-300 bg-indigo-50 px-3 py-2 text-body">
+          <p className="font-medium text-indigo-900">Locked — Finance review</p>
+        </div>
+      ) : null}
+
+      {plan.status === "PendingFinanceReview" ? (
+        <div className="mb-3 rounded border border-violet-300 bg-violet-50 px-3 py-2 text-body">
+          <p className="font-medium text-violet-900">Awaiting Finance claim</p>
+        </div>
+      ) : null}
+
+      {plan.status === "Rejected" && outcome ? (
+        <div className="mb-3 rounded border border-kengen-red/30 bg-red-50 px-3 py-2 text-body">
+          <p className="font-medium text-kengen-red">Rejected</p>
+          <p className="mt-1 text-meta text-neutral-800">
+            Rejected by:{" "}
+            <strong>{names[outcome.performedBy] ?? outcome.performedBy}</strong>
+          </p>
+          <p className="text-meta text-neutral-800">
+            Rejection reason: <strong>{outcome.reason}</strong>
+          </p>
+          <p className="text-meta text-neutral-700">
+            Rejection date: {fmtDate(outcome.timestamp)}
+          </p>
+        </div>
+      ) : null}
+
+      {plan.status === "ReturnedForRevision" && outcome ? (
+        <div className="mb-3 rounded border border-kengen-amber/30 bg-amber-50 px-3 py-2 text-body">
+          <p className="font-medium text-kengen-amber">Returned for correction</p>
+          <p className="mt-1 text-meta text-neutral-800">
+            Returned by:{" "}
+            <strong>{names[outcome.performedBy] ?? outcome.performedBy}</strong>
+          </p>
+          <p className="text-meta text-neutral-800">
+            Return reason: <strong>{outcome.reason}</strong>
+          </p>
+          <p className="text-meta text-neutral-700">
+            Return date: {fmtDate(outcome.timestamp)}
+          </p>
+        </div>
+      ) : null}
+
       <div className="mb-3 flex flex-wrap gap-3 text-body">
-        <StatusChip status={plan.status} />
+        {stageLabel ? (
+          <span className="inline-flex items-center rounded border border-kengen-blue/40 bg-blue-50 px-1.5 py-0.5 text-meta font-medium text-kengen-blue">
+            {stageLabel}
+          </span>
+        ) : (
+          <StatusChip status={plan.status} />
+        )}
         <span>Total: {formatCurrency(total)}</span>
         <span className="text-meta text-neutral-700">
-          Cost center: {plan.costCenterId}
+          Owner: {names[plan.ownerId] ?? plan.ownerId}
         </span>
+        {plan.currentApproverId ? (
+          <span className="text-meta text-neutral-700">
+            Current approver: {names[plan.currentApproverId] ?? plan.currentApproverId}
+          </span>
+        ) : null}
       </div>
+
+      {plan.description ? (
+        <div className="mb-4 rounded-2xl border border-white/50 bg-white/70 px-3 py-2 text-body shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-md">
+          <p className="text-meta uppercase text-neutral-700">Description</p>
+          <p className="mt-1 whitespace-pre-wrap text-kengen-navy">
+            {plan.description}
+          </p>
+        </div>
+      ) : null}
+
       <div className="mb-4 overflow-x-auto rounded border border-neutral-400/30 bg-white">
         <table className="w-full text-left text-body">
           <thead className="bg-neutral-100 text-meta uppercase text-neutral-700">
@@ -169,41 +456,177 @@ export default function BudgetDetailPage() {
           </tbody>
         </table>
       </div>
-      {canApprove ? (
-        <div className="rounded border border-neutral-400/30 bg-white p-3">
+
+      <div className="mb-4 rounded border border-neutral-400/30 bg-white p-3">
+        <p className="mb-3 text-sm font-medium text-kengen-navy">
+          Approval Timeline
+        </p>
+        <ApprovalTimeline
+          history={history}
+          names={names}
+          currentStatus={plan.status}
+        />
+      </div>
+
+      <div className="mb-4 rounded border border-neutral-400/30 bg-white p-3">
+        <p className="mb-3 text-sm font-medium text-kengen-navy">
+          Workflow history
+        </p>
+        {workflow.length === 0 ? (
+          <p className="text-meta text-neutral-600">No workflow events yet.</p>
+        ) : (
+          <ul className="space-y-2 text-body">
+            {workflow.map((w) => (
+              <li
+                key={w.id}
+                className="border-b border-neutral-200/80 pb-2 last:border-0"
+              >
+                <p className="font-medium text-kengen-navy">
+                  {w.stage} · {w.action}
+                </p>
+                <p className="text-meta text-neutral-700">
+                  {names[w.actorId] ?? w.actorId} · {fmtDate(w.timestamp)}
+                </p>
+                {w.comment ? (
+                  <p className="mt-0.5 text-meta text-neutral-800">{w.comment}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {compare ? (
+        <div className="mb-4 rounded border border-neutral-400/30 bg-white p-3">
           <p className="mb-2 text-sm font-medium text-kengen-navy">
-            Your decision
+            Version compare
           </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void onApprove()}
-              className="rounded bg-kengen-green px-3 py-1.5 text-body text-white disabled:opacity-50"
-            >
-              Approve
-            </button>
-          </div>
-          <label className="mt-3 block text-meta">
-            Reason for rejection (required to reject)
-            <textarea
-              className="mt-1 w-full rounded border border-neutral-400/40 px-2 py-1.5 text-body"
-              rows={3}
-              value={rejectComment}
-              onChange={(e) => setRejectComment(e.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void onReject()}
-            className="mt-2 rounded bg-kengen-red px-3 py-1.5 text-body text-white disabled:opacity-50"
-          >
-            Reject / Return
-          </button>
+          <p className="mb-2 text-meta text-neutral-700">
+            {compare.fromLabel ?? "Prior"} → {compare.toLabel ?? "Current"} ·
+            Delta {formatCurrency(compare.totalDelta)}
+          </p>
+          <p className="mb-3 text-meta text-neutral-600">
+            Lines +{compare.summary.linesAdded} / −{compare.summary.linesRemoved}{" "}
+            / ~{compare.summary.linesModified}
+            {compare.summary.headerFieldsChanged
+              ? ` · ${compare.summary.headerFieldsChanged} header field(s) changed`
+              : ""}
+          </p>
+          {compare.lineDiffs.filter((d) => d.change !== "unchanged").length >
+          0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-body">
+                <thead className="bg-neutral-100 text-meta uppercase text-neutral-700">
+                  <tr>
+                    <th className="px-2 py-1.5">Change</th>
+                    <th className="px-2 py-1.5">Cost Element</th>
+                    <th className="px-2 py-1.5">From</th>
+                    <th className="px-2 py-1.5">To</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {compare.lineDiffs
+                    .filter((d) => d.change !== "unchanged")
+                    .map((d) => {
+                      const gl = glMap.get(d.glAccountId);
+                      return (
+                        <tr
+                          key={`${d.glAccountId}-${d.change}`}
+                          className="border-t border-neutral-400/20"
+                        >
+                          <td className="px-2 py-1.5 capitalize">{d.change}</td>
+                          <td className="px-2 py-1.5">
+                            {gl?.code ?? d.glCode ?? d.glAccountId}
+                          </td>
+                          <td className="px-2 py-1.5">
+                            {d.fromAmount != null
+                              ? formatCurrency(d.fromAmount)
+                              : "—"}
+                          </td>
+                          <td className="px-2 py-1.5">
+                            {d.toAmount != null
+                              ? formatCurrency(d.toAmount)
+                              : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-meta text-neutral-600">
+              No line-item changes versus the prior version.
+            </p>
+          )}
         </div>
       ) : null}
-      {plan.ownerId === user.id && plan.status === "Draft" && plan.costCenterId === IDS.ccGm ? null : null}
+
+      {canReview ? (
+        <div className="rounded border border-neutral-400/30 bg-white p-3">
+          <p className="mb-2 text-sm font-medium text-kengen-navy">Decision</p>
+          <label className="mb-3 block text-meta">
+            Comment
+            <textarea
+              className="glass-select mt-1 min-h-[2.5rem] w-full resize-y"
+              rows={2}
+              value={approveComment}
+              onChange={(e) => setApproveComment(e.target.value)}
+              placeholder="Optional"
+            />
+          </label>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="primary"
+              icon={Check}
+              loading={busy}
+              disabled={busy}
+              onClick={() => void onApprove()}
+            >
+              Approve
+            </Button>
+          </div>
+          {canReturn ? (
+            <>
+              <label className="block text-meta">
+                Return reason
+                <textarea
+                  className="glass-select mt-1 min-h-[3.5rem] w-full resize-y"
+                  rows={3}
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Required"
+                />
+              </label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="warning"
+                  icon={RotateCcw}
+                  loading={busy}
+                  disabled={busy}
+                  onClick={() => void onReturn()}
+                >
+                  Return
+                </Button>
+                {canReject ? (
+                  <Button
+                    type="button"
+                    variant="danger"
+                    icon={X}
+                    loading={busy}
+                    disabled={busy}
+                    onClick={() => void onReject()}
+                  >
+                    Reject
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

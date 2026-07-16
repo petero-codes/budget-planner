@@ -1,0 +1,422 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Eye,
+  FileText,
+  Hand,
+  LockOpen,
+  RotateCcw,
+  BadgeCheck,
+  BarChart3,
+} from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import { PageShell } from "@/components/shared/page-shell";
+import { StatusChip } from "@/components/shared/status-chip";
+import { ActionLink, Button } from "@/components/ui/button";
+import { ApiError, apiGet, apiSend } from "@/lib/client-api";
+import type { FiscalYear, User } from "@/domain/entities";
+import { formatCurrency } from "@/lib/utils";
+
+type InboxRow = {
+  planId: string;
+  budgetNumber: string | null;
+  status: string;
+  employee: string;
+  department: string;
+  costCenter: string;
+  fiscalYear: number | null;
+  glCount: number;
+  amount: number;
+  submissionDate: string | null;
+  sapReference: string | null;
+  claimDueAt: string | null;
+  reviewDueAt: string | null;
+  escalationStatus: string;
+  financeClaimedBy: string | null;
+  sapStatus: "Generated" | "Pending";
+};
+
+type Dash = {
+  totals: {
+    submitted: number;
+    approved: number;
+    rejected: number;
+    returned: number;
+    pending: number;
+    draft: number;
+    totalRequested: number;
+    totalApproved: number;
+    utilization: number;
+  };
+  byYear: Record<string, { count: number; amount: number }>;
+  byCostCenter: Record<string, { count: number; amount: number }>;
+  years: FiscalYear[];
+};
+
+export default function FinanceDashboardPage() {
+  const router = useRouter();
+  const [data, setData] = useState<Dash | null>(null);
+  const [inbox, setInbox] = useState<InboxRow[]>([]);
+  const [search, setSearch] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [returnReason, setReturnReason] = useState("");
+  const [returnTarget, setReturnTarget] = useState<string | null>(null);
+
+  async function reload() {
+    // Best-effort: persist overdue escalations + notify Finance admins.
+    try {
+      await apiSend("/api/v1/finance/escalations", "POST");
+    } catch {
+      /* inbox still loads if escalation pass fails */
+    }
+    const [dash, rows] = await Promise.all([
+      apiGet<Dash>("/api/v1/finance/dashboard"),
+      apiGet<InboxRow[]>("/api/v1/finance/approved"),
+    ]);
+    setData(dash);
+    setInbox(rows);
+  }
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const me = await apiGet<{ user: User }>("/api/v1/me");
+        if (!me.user.permissionCodes.includes("finance.view")) {
+          router.replace("/access-denied");
+          return;
+        }
+        await reload();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load");
+      }
+    })();
+  }, [router]);
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return inbox;
+    return inbox.filter(
+      (r) =>
+        r.employee.toLowerCase().includes(term) ||
+        r.department.toLowerCase().includes(term) ||
+        r.costCenter.toLowerCase().includes(term) ||
+        (r.budgetNumber?.toLowerCase().includes(term) ?? false) ||
+        String(r.fiscalYear ?? "").includes(term) ||
+        (r.sapReference?.toLowerCase().includes(term) ?? false) ||
+        r.status.toLowerCase().includes(term)
+    );
+  }, [inbox, search]);
+
+  const waiting = filtered.filter((r) => r.status === "PendingFinanceReview");
+  const claimed = filtered.filter((r) => r.status === "Claimed");
+  const finalized = filtered.filter(
+    (r) => r.status === "Finalized" || r.status === "Approved"
+  );
+  const overdue = filtered.filter(
+    (r) =>
+      (r.status === "PendingFinanceReview" || r.status === "Claimed") &&
+      ((r.claimDueAt && new Date(r.claimDueAt) < new Date()) ||
+        (r.reviewDueAt && new Date(r.reviewDueAt) < new Date()) ||
+        r.escalationStatus === "Escalated")
+  );
+
+  async function claim(planId: string) {
+    if (!window.confirm("Claim this budget for Finance review?")) {
+      return;
+    }
+    setBusy(planId);
+    setError(null);
+    try {
+      await apiSend(`/api/v1/budget-plans/${planId}/finance/claim`, "POST");
+      setNotice("Budget claimed.");
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Claim failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function finalize(planId: string) {
+    if (
+      !window.confirm(
+        "Finalize this budget? This locks it and generates the SAP package."
+      )
+    ) {
+      return;
+    }
+    setBusy(planId);
+    setError(null);
+    try {
+      await apiSend(`/api/v1/budget-plans/${planId}/finance/finalize`, "POST");
+      setNotice("Budget finalized. SAP package is ready.");
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Finalize failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function release(planId: string) {
+    setBusy(planId);
+    setError(null);
+    try {
+      await apiSend(`/api/v1/budget-plans/${planId}/finance/release`, "POST");
+      setNotice("Claim released. Budget is back in the queue.");
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Release failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function returnPlan(planId: string) {
+    if (!returnReason.trim()) {
+      setError("Return reason is required");
+      return;
+    }
+    setBusy(planId);
+    setError(null);
+    try {
+      await apiSend(`/api/v1/budget-plans/${planId}/finance/return`, "POST", {
+        reason: returnReason.trim(),
+      });
+      setReturnTarget(null);
+      setReturnReason("");
+      setNotice("Budget returned by Finance.");
+      await reload();
+    } catch (e) {
+      setError(
+        e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Return failed"
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (error && !data) return <p className="text-kengen-red">{error}</p>;
+  if (!data) return <p className="text-meta">Loading finance dashboard…</p>;
+
+  const cards = [
+    { label: "Waiting", value: String(waiting.length) },
+    { label: "Claimed", value: String(claimed.length) },
+    { label: "Finalized", value: String(finalized.length) },
+    { label: "Overdue", value: String(overdue.length) },
+    {
+      label: "Approved amount",
+      value: formatCurrency(data.totals.totalApproved),
+    },
+  ];
+
+  function renderActions(r: InboxRow) {
+    if (r.status === "PendingFinanceReview") {
+      return (
+        <Button
+          type="button"
+          variant="primary"
+          size="compact"
+          icon={Hand}
+          loading={busy === r.planId}
+          disabled={busy === r.planId}
+          onClick={() => void claim(r.planId)}
+          aria-label={`Claim budget ${r.budgetNumber ?? r.planId}`}
+        >
+          Claim
+        </Button>
+      );
+    }
+    if (r.status === "Claimed") {
+      return (
+        <div className="flex flex-wrap gap-1.5">
+          <Button
+            type="button"
+            variant="success"
+            size="compact"
+            icon={BadgeCheck}
+            loading={busy === r.planId}
+            disabled={busy === r.planId}
+            onClick={() => void finalize(r.planId)}
+            aria-label="Finalize budget"
+          >
+            Finalize
+          </Button>
+          <Button
+            type="button"
+            variant="warning"
+            size="compact"
+            icon={RotateCcw}
+            disabled={busy === r.planId}
+            onClick={() => setReturnTarget(r.planId)}
+            aria-label="Return for revision"
+          >
+            Return
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="compact"
+            icon={LockOpen}
+            loading={busy === r.planId}
+            disabled={busy === r.planId}
+            onClick={() => void release(r.planId)}
+            aria-label="Release claim"
+          >
+            Release
+          </Button>
+          <ActionLink
+            href={`/budgets/${r.planId}`}
+            variant="secondary"
+            icon={Eye}
+            aria-label="View budget"
+          >
+            View
+          </ActionLink>
+        </div>
+      );
+    }
+    return (
+      <ActionLink
+        href={`/finance/sap/${r.planId}`}
+        variant="secondary"
+        icon={FileText}
+        aria-label="Open SAP package"
+      >
+        SAP Package
+      </ActionLink>
+    );
+  }
+
+  return (
+    <PageShell>
+      <PageHeader title="Finance Queue" actions={
+          <ActionLink href="/reports" variant="secondary" icon={BarChart3}>
+            Open reports
+          </ActionLink>
+        } />
+
+      {error ? <p className="mb-2 text-kengen-red">{error}</p> : null}
+      {notice ? (
+        <p className="mb-2 rounded border border-kengen-green/40 bg-[rgba(0,105,62,0.08)] px-2 py-1.5 text-body text-kengen-green">
+          {notice}
+        </p>
+      ) : null}
+
+      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        {cards.map((c) => (
+          <div
+            key={c.label}
+            className="rounded-2xl border border-white/50 bg-white/70 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]"
+          >
+            <p className="text-meta text-neutral-700">{c.label}</p>
+            <p className="text-base font-semibold text-kengen-navy">{c.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-4 overflow-x-auto rounded border border-neutral-400/30 bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-400/20 bg-neutral-100 px-3 py-2">
+          <p className="text-meta font-medium uppercase text-neutral-700">
+            Finance inbox ({filtered.length})
+          </p>
+          <input
+            className="glass-select w-full max-w-xs"
+            placeholder="Search…"
+            aria-label="Search finance inbox"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        {filtered.length === 0 ? (
+          <p className="px-3 py-4 text-meta text-neutral-700">
+            No budgets found.
+          </p>
+        ) : (
+          <table className="w-full text-left text-body">
+            <thead className="sticky top-0 bg-neutral-100 text-meta uppercase text-neutral-700">
+              <tr>
+                <th className="px-2 py-1.5">Budget #</th>
+                <th className="px-2 py-1.5">Status</th>
+                <th className="px-2 py-1.5">Employee</th>
+                <th className="px-2 py-1.5">Cost center</th>
+                <th className="px-2 py-1.5">Amount</th>
+                <th className="px-2 py-1.5">SLA</th>
+                <th className="px-2 py-1.5">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r) => (
+                <tr
+                  key={r.planId}
+                  className="border-t border-neutral-400/20 hover:bg-neutral-50"
+                >
+                  <td className="px-2 py-1.5 font-medium">
+                    {r.budgetNumber ?? r.planId.slice(0, 8)}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <StatusChip status={r.status} />
+                  </td>
+                  <td className="px-2 py-1.5">{r.employee}</td>
+                  <td className="px-2 py-1.5">{r.costCenter}</td>
+                  <td className="px-2 py-1.5">{formatCurrency(r.amount)}</td>
+                  <td className="px-2 py-1.5 text-meta">
+                    {r.escalationStatus !== "None" ? (
+                      <span className="text-kengen-amber">{r.escalationStatus}</span>
+                    ) : r.claimDueAt ? (
+                      `Claim due ${new Date(r.claimDueAt).toLocaleDateString()}`
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-2 py-1.5">{renderActions(r)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {returnTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl">
+            <p className="mb-2 font-medium text-kengen-navy">
+              Return for revision
+            </p>
+            <textarea
+              className="mb-3 w-full rounded border p-2 text-body"
+              rows={3}
+              placeholder="Reason"
+              value={returnReason}
+              onChange={(e) => setReturnReason(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setReturnTarget(null);
+                  setReturnReason("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="warning"
+                icon={RotateCcw}
+                onClick={() => void returnPlan(returnTarget)}
+              >
+                Return
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </PageShell>
+  );
+}

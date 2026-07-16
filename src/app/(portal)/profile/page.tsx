@@ -2,33 +2,60 @@
 
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
-import { getCurrentUser, repos } from "@/infrastructure/di";
+import { PageShell } from "@/components/shared/page-shell";
+import { apiGet } from "@/lib/client-api";
 import type { CostCenter, Position, User } from "@/domain/entities";
-import { mockStore } from "@/infrastructure/repositories/mock/store";
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const [position, setPosition] = useState<Position | null>(null);
   const [cc, setCc] = useState<CostCenter | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
-      const current = await getCurrentUser();
-      setUser(current);
-      setPosition(
-        mockStore.positions.find((p) => p.id === current.positionId) ?? null
-      );
-      setCc(await repos.costCenters.getById(current.primaryCostCenterId));
+      try {
+        const me = await apiGet<{
+          user: User;
+          position: Position | null;
+        }>("/api/v1/me");
+        setUser(me.user);
+        setPosition(me.position);
+        const ref = await apiGet<{ costCenters: CostCenter[] }>(
+          "/api/v1/reference"
+        );
+        setCc(
+          ref.costCenters.find((c) => c.id === me.user.primaryCostCenterId) ??
+            null
+        );
+        setError(null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load profile");
+      }
     })();
   }, []);
 
-  if (!user) return <p className="text-meta">Loading…</p>;
+  if (error) {
+    return (
+      <PageShell>
+        <p className="text-kengen-red">{error}</p>
+      </PageShell>
+    );
+  }
+
+  if (!user) {
+    return (
+      <PageShell>
+        <p className="text-meta">Loading…</p>
+      </PageShell>
+    );
+  }
 
   return (
-    <div>
-      <PageHeader title="My Profile" description="Account details (admin-managed)" />
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded border border-neutral-400/30 bg-white p-4">
+    <PageShell>
+      <PageHeader title="My Profile" />
+      <div className="grid flex-1 gap-4 md:grid-cols-2">
+        <div className="rounded border border-neutral-400/30 bg-white p-4 md:h-full">
           <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-kengen-navy text-lg text-white">
             {user.name
               .split(" ")
@@ -42,17 +69,15 @@ export default function ProfilePage() {
           <p className="text-meta text-neutral-700">
             Cost center: {cc ? `${cc.code} — ${cc.name}` : user.primaryCostCenterId}
           </p>
-          <p className="mt-2 text-meta">
-            Roles: {user.roleCodes.join(", ")}
-          </p>
+          <p className="mt-2 text-meta">Roles: {user.roleCodes.join(", ")}</p>
         </div>
-        <div className="rounded border border-neutral-400/30 bg-white p-4 text-body">
+        <div className="rounded border border-neutral-400/30 bg-white p-4 text-body md:h-full">
           <p className="mb-2 font-medium text-kengen-navy">Security</p>
           <p className="text-meta text-neutral-700">
             Password / MFA managed by corporate directory (SSO in a later phase).
           </p>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

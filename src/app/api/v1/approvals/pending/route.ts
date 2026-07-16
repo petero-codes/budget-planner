@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { AuthorizationError } from "@/application/authorization-service";
 import { budgetPlanService, getCurrentUser } from "@/infrastructure/di";
+import { readApiError } from "@/lib/security/read-api-error";
 
 export async function GET() {
   const correlationId = crypto.randomUUID();
@@ -9,21 +9,6 @@ export async function GET() {
     const plans = await budgetPlanService.listPendingApprovals(user);
     return NextResponse.json({ data: plans, correlationId });
   } catch (e) {
-    if (e instanceof AuthorizationError) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: e.message, correlationId } },
-        { status: 403 }
-      );
-    }
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL",
-          message: e instanceof Error ? e.message : "Unexpected error",
-          correlationId,
-        },
-      },
-      { status: 500 }
-    );
+    return readApiError(e, correlationId);
   }
 }

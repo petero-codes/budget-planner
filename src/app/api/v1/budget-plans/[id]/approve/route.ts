@@ -1,39 +1,30 @@
-import { NextResponse } from "next/server";
-import { AuthorizationError } from "@/application/authorization-service";
-import { ApprovalServiceError } from "@/application/approval-service";
+import { NextRequest, NextResponse } from "next/server";
 import { approvalService, getCurrentUser } from "@/infrastructure/di";
+import { approveSchema, parseBody } from "@/lib/security/api-schemas";
+import { budgetApiError } from "@/lib/security/budget-api-error";
 
 export async function POST(
-  _req: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const correlationId = crypto.randomUUID();
   try {
     const user = await getCurrentUser();
-    const plan = await approvalService.approve(params.id, user, correlationId);
+    let comment: string | null = null;
+    const contentType = req.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const parsed = await parseBody(req, approveSchema, correlationId);
+      if (!parsed.ok) return parsed.response;
+      comment = parsed.data.comment?.trim() || null;
+    }
+    const plan = await approvalService.approve(
+      params.id,
+      user,
+      comment,
+      correlationId
+    );
     return NextResponse.json({ data: plan, correlationId });
   } catch (e) {
-    if (e instanceof AuthorizationError) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: e.message, correlationId } },
-        { status: 403 }
-      );
-    }
-    if (e instanceof ApprovalServiceError) {
-      return NextResponse.json(
-        { error: { code: e.code, message: e.message, correlationId } },
-        { status: 422 }
-      );
-    }
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL",
-          message: e instanceof Error ? e.message : "Unexpected error",
-          correlationId,
-        },
-      },
-      { status: 500 }
-    );
+    return budgetApiError(e, correlationId);
   }
 }

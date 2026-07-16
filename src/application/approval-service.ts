@@ -1,6 +1,7 @@
 import { buildApprovalRoute } from "@/domain/rules/build-approval-route";
+import { computeFinanceDueDates } from "@/domain/rules/finance-sla";
 import {
-  assertCanEditDraft,
+  assertCanSubmit,
   assertSapCodeForSubmit,
   validateBudgetLines,
 } from "@/domain/rules/budget-plan-invariants";
@@ -11,15 +12,28 @@ import type {
   IAuditLogRepository,
   IBudgetPlanRepository,
   ICostCenterRepository,
+  IFiscalYearRepository,
   INotificationRepository,
+  ISubmissionStatusRepository,
   IUnitOfWork,
   IUserRepository,
+  IWorkflowHistoryRepository,
 } from "@/infrastructure/repositories/interfaces";
-import { newId } from "@/infrastructure/repositories/mock";
+import { newId } from "@/infrastructure/id";
+import { submissionStatusForBudget } from "@/domain/rules/submission-status";
 import {
   AuthorizationError,
   AuthorizationService,
 } from "./authorization-service";
+import {
+  ActiveBudgetConflictError,
+  existingActiveBudgetFromPlan,
+} from "./active-budget-conflict";
+import {
+  listFinanceAdministrators,
+  notifyFinanceQueue,
+  WorkflowRecorder,
+} from "./workflow-recorder";
 
 export class ApprovalServiceError extends Error {
   constructor(
@@ -32,17 +46,76 @@ export class ApprovalServiceError extends Error {
 }
 
 export class ApprovalService {
+  private readonly workflow: WorkflowRecorder;
+
   constructor(
     private readonly users: IUserRepository,
     private readonly budgets: IBudgetPlanRepository,
     private readonly costCenters: ICostCenterRepository,
+    private readonly fiscalYears: IFiscalYearRepository,
     private readonly routes: IApprovalRouteRepository,
     private readonly history: IApprovalHistoryRepository,
     private readonly audits: IAuditLogRepository,
     private readonly notifications: INotificationRepository,
     private readonly authz: AuthorizationService,
-    private readonly uow: IUnitOfWork
-  ) {}
+    private readonly uow: IUnitOfWork,
+    private readonly submissionStatus: ISubmissionStatusRepository,
+    workflowRepo: IWorkflowHistoryRepository
+  ) {
+    this.workflow = new WorkflowRecorder(workflowRepo);
+  }
+
+  private async recordDeniedAttempt(
+    actor: User,
+    planId: string,
+    action: string,
+    reason: string
+  ): Promise<void> {
+    await this.audits.append({
+      id: newId("audit"),
+      entity: "BudgetPlan",
+      entityId: planId,
+      action,
+      performedBy: actor.id,
+      ipAddress: null,
+      correlationId: newId("corr"),
+      beforeJson: null,
+      afterJson: JSON.stringify({ denied: true, reason }),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  private async recordSubmission(plan: BudgetPlan): Promise<void> {
+    await this.submissionStatus.upsert({
+      costCenterId: plan.costCenterId,
+      fiscalYearId: plan.fiscalYearId,
+      status: submissionStatusForBudget(plan.status),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  private async assertPlanFyOpen(plan: BudgetPlan) {
+    const fy = await this.fiscalYears.getById(plan.fiscalYearId);
+    if (!fy || fy.status !== "Open") {
+      throw new ApprovalServiceError(
+        `Financial year is ${fy?.status ?? "missing"} — workflow actions are blocked`,
+        "FY_LOCKED"
+      );
+    }
+  }
+
+  /** GM-approved budgets enter Finance queue; SAP reference stamped on Finalize. */
+  private async enterFinanceQueue(
+    plan: BudgetPlan,
+    actor: User,
+    correlationId: string,
+    now: string
+  ): Promise<void> {
+    const due = computeFinanceDueDates(now);
+    plan.claimDueAt = due.claimDueAt;
+    plan.reviewDueAt = due.reviewDueAt;
+    plan.escalationStatus = "None";
+  }
 
   async submit(
     planId: string,
@@ -54,10 +127,17 @@ export class ApprovalService {
       const plan = await this.budgets.getById(planId);
       if (!plan) throw new ApprovalServiceError("Budget not found", "NOT_FOUND");
       if (plan.ownerId !== actor.id) {
+        await this.recordDeniedAttempt(
+          actor,
+          plan.id,
+          "SubmitDenied",
+          "Only the owner can submit this budget"
+        );
         throw new AuthorizationError("Only the owner can submit this budget");
       }
       this.authz.assertPermission(actor, "budget.submit");
-      assertCanEditDraft(plan);
+      assertCanSubmit(plan);
+      await this.assertPlanFyOpen(plan);
 
       const lineIssues = validateBudgetLines(plan.lines);
       if (lineIssues.length) {
@@ -77,16 +157,34 @@ export class ApprovalService {
         plan.budgetType
       );
       if (duplicate && duplicate.id !== plan.id) {
-        throw new ApprovalServiceError(
-          "An active budget already exists for this cost center, fiscal year, and type",
-          "DUPLICATE"
+        const [dupCc, dupFy, owner] = await Promise.all([
+          this.costCenters.getById(duplicate.costCenterId),
+          this.fiscalYears.getById(duplicate.fiscalYearId),
+          this.users.getById(duplicate.ownerId),
+        ]);
+        const costCenterCode = dupCc?.code ?? duplicate.costCenterId;
+        const yearLabel = dupFy?.yearLabel ?? 0;
+        throw new ActiveBudgetConflictError(
+          `An active ${duplicate.budgetType} budget already exists for Cost Center ${costCenterCode} for FY${yearLabel}.`,
+          existingActiveBudgetFromPlan(duplicate, {
+            costCenterCode,
+            costCenterName: dupCc?.name ?? "",
+            fiscalYearLabel: yearLabel,
+            ownerName: owner?.name ?? null,
+          })
         );
       }
 
       const usersMap = await this.users.getUsersByIdMap();
-      const draftRoute = buildApprovalRoute(plan.ownerId, usersMap);
+      const draftRoute = buildApprovalRoute(
+        plan.ownerId,
+        usersMap,
+        cc.managerId
+      );
       const now = new Date().toISOString();
       const previousStatus = plan.status;
+      const isResubmit = previousStatus === "ReturnedForRevision";
+      const submitAction = isResubmit ? "Resubmitted" : "Submitted";
 
       const routeSteps = draftRoute.map((step) => ({
         id: newId("route"),
@@ -98,60 +196,69 @@ export class ApprovalService {
       await this.routes.replaceForBudget(plan.id, routeSteps);
 
       if (routeSteps.length === 0) {
-        plan.status = "Approved";
+        const nowFinance = now;
+        plan.status = "PendingFinanceReview";
         plan.currentApproverId = null;
-        plan.submittedAt = now;
-        plan.sapVersion = plan.sapVersion ?? "V1";
-        plan.updatedAt = now;
-        plan.version += 1;
-        await this.budgets.save(plan);
+        plan.submittedAt = nowFinance;
+        await this.enterFinanceQueue(plan, actor, correlationId, nowFinance);
+        plan.updatedAt = nowFinance;
+        Object.assign(plan, await this.budgets.save(plan));
         await this.history.append({
           id: newId("hist"),
           budgetPlanId: plan.id,
           performedBy: actor.id,
-          action: "SubmittedAndCompleted",
+          action: submitAction,
           previousStatus,
-          newStatus: "Approved",
+          newStatus: "PendingFinanceReview",
           comment: null,
-          timestamp: now,
+          timestamp: nowFinance,
         });
-        await this.audits.append({
-          id: newId("audit"),
-          entity: "BudgetPlan",
-          entityId: plan.id,
-          action: "SubmittedAndCompleted",
-          performedBy: actor.id,
-          ipAddress,
-          correlationId,
-          beforeJson: JSON.stringify({ status: previousStatus }),
-          afterJson: JSON.stringify({ status: "Approved" }),
-          timestamp: now,
-        });
+        await this.workflow.record(
+          plan.id,
+          actor.id,
+          "FinanceQueue",
+          submitAction
+        );
+        const financeUsers = listFinanceAdministrators(
+          await this.users.getAll()
+        );
+        await notifyFinanceQueue(
+          this.notifications,
+          financeUsers,
+          plan,
+          actor.name
+        );
+        await this.recordSubmission(plan);
         return plan;
       }
 
       plan.status = "InApproval";
-      plan.currentApproverId = routeSteps[0].approverId;
+      plan.currentApproverId = routeSteps[0]!.approverId;
       plan.submittedAt = now;
       plan.updatedAt = now;
-      plan.version += 1;
-      await this.budgets.save(plan);
+      Object.assign(plan, await this.budgets.save(plan));
 
       await this.history.append({
         id: newId("hist"),
         budgetPlanId: plan.id,
         performedBy: actor.id,
-        action: "Submitted",
+        action: submitAction,
         previousStatus,
         newStatus: "InApproval",
         comment: null,
         timestamp: now,
       });
+      await this.workflow.record(
+        plan.id,
+        actor.id,
+        isResubmit ? "Submitted" : "Submitted",
+        submitAction
+      );
       await this.audits.append({
         id: newId("audit"),
         entity: "BudgetPlan",
         entityId: plan.id,
-        action: "Submitted",
+        action: submitAction,
         performedBy: actor.id,
         ipAddress,
         correlationId,
@@ -164,14 +271,19 @@ export class ApprovalService {
       });
       await this.notifications.create({
         id: newId("notif"),
-        userId: routeSteps[0].approverId,
+        userId: routeSteps[0]!.approverId,
         type: "Approval",
-        title: "Budget awaiting your approval",
-        body: `${actor.name} submitted a budget for your review.`,
+        title: isResubmit
+          ? "Budget resubmitted for your approval"
+          : "Budget awaiting your approval",
+        body: isResubmit
+          ? `${actor.name} resubmitted a budget after revision.`
+          : `${actor.name} submitted a budget for your review.`,
         relatedPlanId: plan.id,
         isRead: false,
         createdAt: now,
       });
+      await this.recordSubmission(plan);
       return plan;
     });
   }
@@ -179,38 +291,22 @@ export class ApprovalService {
   async approve(
     planId: string,
     actor: User,
+    comment: string | null = null,
     correlationId = newId("corr"),
     ipAddress: string | null = null
   ): Promise<BudgetPlan> {
     return this.uow.runInTransaction(async () => {
-      const plan = await this.budgets.getById(planId);
-      if (!plan) throw new ApprovalServiceError("Budget not found", "NOT_FOUND");
-      if (plan.status !== "InApproval") {
-        throw new ApprovalServiceError(
-          "Budget is not awaiting approval",
-          "INVALID_STATE"
-        );
-      }
-      if (plan.currentApproverId !== actor.id) {
-        throw new AuthorizationError(
-          "You are not the current approver for this budget"
-        );
-      }
-      this.authz.assertPermission(actor, "budget.approve");
-      if (actor.id === plan.ownerId) {
-        throw new AuthorizationError("Owner cannot approve their own budget");
-      }
-
+      const plan = await this.assertCurrentApprover(planId, actor, "budget.approve");
+      await this.assertPlanFyOpen(plan);
       const route = await this.routes.listByBudgetId(plan.id);
       const current = route.find(
         (r) => r.approverId === actor.id && r.status === "Pending"
       );
-      if (!current) {
-        return plan;
-      }
+      if (!current) return plan;
 
       const now = new Date().toISOString();
       const previousStatus = plan.status;
+      const note = comment?.trim() || null;
       current.status = "Approved";
       await this.routes.saveStep(current);
 
@@ -218,11 +314,17 @@ export class ApprovalService {
         .filter((r) => r.status === "Pending" && r.sequence > current.sequence)
         .sort((a, b) => a.sequence - b.sequence)[0];
 
+      await this.notifications.dismissForPlan(plan.id, {
+        userId: actor.id,
+        types: ["Approval"],
+      });
+
       if (next) {
         plan.currentApproverId = next.approverId;
         plan.updatedAt = now;
-        plan.version += 1;
-        await this.budgets.save(plan);
+        Object.assign(plan, await this.budgets.save(plan));
+        const stage =
+          current.sequence === 1 && route.length > 1 ? "ManagerReview" : "GMReview";
         await this.history.append({
           id: newId("hist"),
           budgetPlanId: plan.id,
@@ -230,9 +332,10 @@ export class ApprovalService {
           action: "Approved",
           previousStatus,
           newStatus: "InApproval",
-          comment: null,
+          comment: note,
           timestamp: now,
         });
+        await this.workflow.record(plan.id, actor.id, stage, "Approved", note);
         await this.audits.append({
           id: newId("audit"),
           entity: "BudgetPlan",
@@ -241,8 +344,15 @@ export class ApprovalService {
           performedBy: actor.id,
           ipAddress,
           correlationId,
-          beforeJson: JSON.stringify({ currentApproverId: actor.id }),
-          afterJson: JSON.stringify({ currentApproverId: next.approverId }),
+          beforeJson: JSON.stringify({
+            status: previousStatus,
+            currentApproverId: actor.id,
+          }),
+          afterJson: JSON.stringify({
+            status: "InApproval",
+            currentApproverId: next.approverId,
+            comment: note,
+          }),
           timestamp: now,
         });
         await this.notifications.create({
@@ -256,91 +366,205 @@ export class ApprovalService {
           createdAt: now,
         });
       } else {
-        plan.status = "Approved";
+        plan.status = "PendingFinanceReview";
         plan.currentApproverId = null;
-        plan.sapVersion = plan.sapVersion ?? "V1";
+        await this.enterFinanceQueue(plan, actor, correlationId, now);
         plan.updatedAt = now;
-        plan.version += 1;
-        await this.budgets.save(plan);
+        Object.assign(plan, await this.budgets.save(plan));
+        await this.notifications.dismissForPlan(plan.id, {
+          types: ["Approval"],
+        });
         await this.history.append({
           id: newId("hist"),
           budgetPlanId: plan.id,
           performedBy: actor.id,
           action: "Approved",
           previousStatus,
-          newStatus: "Approved",
-          comment: null,
+          newStatus: "PendingFinanceReview",
+          comment: note,
           timestamp: now,
         });
+        await this.workflow.record(
+          plan.id,
+          actor.id,
+          "FinanceQueue",
+          "GMApproved",
+          note
+        );
         await this.audits.append({
           id: newId("audit"),
           entity: "BudgetPlan",
           entityId: plan.id,
-          action: "ApprovedFinal",
+          action: "ApprovedToFinance",
           performedBy: actor.id,
           ipAddress,
           correlationId,
           beforeJson: JSON.stringify({ status: previousStatus }),
-          afterJson: JSON.stringify({ status: "Approved" }),
+          afterJson: JSON.stringify({
+            status: "PendingFinanceReview",
+            comment: note,
+          }),
           timestamp: now,
         });
-        await this.notifications.create({
-          id: newId("notif"),
-          userId: plan.ownerId,
-          type: "Approval",
-          title: "Budget approved",
-          body: `Your budget was approved by ${actor.name}.`,
-          relatedPlanId: plan.id,
-          isRead: false,
-          createdAt: now,
-        });
+        const financeUsers = listFinanceAdministrators(
+          await this.users.getAll()
+        );
+        await notifyFinanceQueue(
+          this.notifications,
+          financeUsers,
+          plan,
+          actor.name
+        );
       }
+      await this.recordSubmission(plan);
       return plan;
     });
   }
 
-  async reject(
+  /** Return for revision — editable by owner, then resubmit. */
+  async returnForRevision(
     planId: string,
     actor: User,
-    comment: string,
+    reason: string,
     correlationId = newId("corr"),
     ipAddress: string | null = null
   ): Promise<BudgetPlan> {
     return this.uow.runInTransaction(async () => {
-      if (!comment?.trim()) {
+      if (!reason?.trim()) {
+        throw new ApprovalServiceError(
+          "A reason is required to return for revision",
+          "VALIDATION"
+        );
+      }
+      const plan = await this.assertCurrentApprover(
+        planId,
+        actor,
+        "budget.approve"
+      );
+      if (!this.authz.canReturnBudget(actor)) {
+        await this.recordDeniedAttempt(
+          actor,
+          plan.id,
+          "ReturnDenied",
+          "Only a Manager or General Manager may return a budget"
+        );
+        throw new AuthorizationError(
+          "Only a Manager or General Manager may return a budget"
+        );
+      }
+      await this.assertPlanFyOpen(plan);
+      const now = new Date().toISOString();
+      const previousStatus = plan.status;
+      const comment = reason.trim();
+
+      await this.invalidatePendingRoute(plan.id);
+
+      plan.status = "ReturnedForRevision";
+      plan.currentApproverId = null;
+      plan.updatedAt = now;
+      Object.assign(plan, await this.budgets.save(plan));
+
+      await this.notifications.dismissForPlan(plan.id, {
+        types: ["Approval"],
+      });
+
+      await this.history.append({
+        id: newId("hist"),
+        budgetPlanId: plan.id,
+        performedBy: actor.id,
+        action: "Returned",
+        previousStatus,
+        newStatus: "ReturnedForRevision",
+        comment,
+        timestamp: now,
+      });
+      const returnStage =
+        this.authz.resolveOrgRole(actor) === "manager"
+          ? "ManagerReview"
+          : "GMReview";
+      await this.workflow.record(
+        plan.id,
+        actor.id,
+        returnStage,
+        "Returned",
+        comment
+      );
+      await this.audits.append({
+        id: newId("audit"),
+        entity: "BudgetPlan",
+        entityId: plan.id,
+        action: "ReturnedForRevision",
+        performedBy: actor.id,
+        ipAddress,
+        correlationId,
+        beforeJson: JSON.stringify({ status: previousStatus }),
+        afterJson: JSON.stringify({
+          status: "ReturnedForRevision",
+          comment,
+        }),
+        timestamp: now,
+      });
+      await this.notifications.create({
+        id: newId("notif"),
+        userId: plan.ownerId,
+        type: "Outcome",
+        title: "Budget returned",
+        body: comment,
+        relatedPlanId: plan.id,
+        isRead: false,
+        createdAt: now,
+      });
+      await this.recordSubmission(plan);
+      return plan;
+    });
+  }
+
+  /** Permanent reject — irreversible, not editable. */
+  async reject(
+    planId: string,
+    actor: User,
+    reason: string,
+    correlationId = newId("corr"),
+    ipAddress: string | null = null
+  ): Promise<BudgetPlan> {
+    return this.uow.runInTransaction(async () => {
+      if (!reason?.trim()) {
         throw new ApprovalServiceError(
           "Rejection reason is required",
           "VALIDATION"
         );
       }
-      const plan = await this.budgets.getById(planId);
-      if (!plan) throw new ApprovalServiceError("Budget not found", "NOT_FOUND");
-      if (plan.status !== "InApproval") {
-        throw new ApprovalServiceError(
-          "Budget is not awaiting approval",
-          "INVALID_STATE"
+      const plan = await this.assertCurrentApprover(
+        planId,
+        actor,
+        "budget.approve"
+      );
+      if (!this.authz.canRejectBudget(actor)) {
+        await this.recordDeniedAttempt(
+          actor,
+          plan.id,
+          "RejectDenied",
+          "Only the General Manager can reject a budget"
         );
-      }
-      if (plan.currentApproverId !== actor.id) {
         throw new AuthorizationError(
-          "You are not the current approver for this budget"
+          "Only the General Manager can reject a budget"
         );
       }
-      this.authz.assertPermission(actor, "budget.reject");
-
+      await this.assertPlanFyOpen(plan);
       const now = new Date().toISOString();
       const previousStatus = plan.status;
-      const route = await this.routes.listByBudgetId(plan.id);
-      for (const step of route.filter((r) => r.status === "Pending")) {
-        step.status = "Invalidated";
-        await this.routes.saveStep(step);
-      }
+      const comment = reason.trim();
 
-      plan.status = "Draft";
+      await this.invalidatePendingRoute(plan.id);
+
+      plan.status = "Rejected";
       plan.currentApproverId = null;
       plan.updatedAt = now;
-      plan.version += 1;
-      await this.budgets.save(plan);
+      Object.assign(plan, await this.budgets.save(plan));
+
+      await this.notifications.dismissForPlan(plan.id, {
+        types: ["Approval"],
+      });
 
       await this.history.append({
         id: newId("hist"),
@@ -348,10 +572,17 @@ export class ApprovalService {
         performedBy: actor.id,
         action: "Rejected",
         previousStatus,
-        newStatus: "Draft",
-        comment: comment.trim(),
+        newStatus: "Rejected",
+        comment,
         timestamp: now,
       });
+      await this.workflow.record(
+        plan.id,
+        actor.id,
+        "Rejected",
+        "Rejected",
+        comment
+      );
       await this.audits.append({
         id: newId("audit"),
         entity: "BudgetPlan",
@@ -361,20 +592,66 @@ export class ApprovalService {
         ipAddress,
         correlationId,
         beforeJson: JSON.stringify({ status: previousStatus }),
-        afterJson: JSON.stringify({ status: "Draft", comment }),
+        afterJson: JSON.stringify({ status: "Rejected", comment }),
         timestamp: now,
       });
       await this.notifications.create({
         id: newId("notif"),
         userId: plan.ownerId,
-        type: "Rejection",
-        title: "Budget returned for revision",
-        body: comment.trim(),
+        type: "Outcome",
+        title: "Budget rejected",
+        body: comment,
         relatedPlanId: plan.id,
         isRead: false,
         createdAt: now,
       });
+      await this.recordSubmission(plan);
       return plan;
     });
+  }
+
+  private async assertCurrentApprover(
+    planId: string,
+    actor: User,
+    permission: "budget.approve" | "budget.reject"
+  ): Promise<BudgetPlan> {
+    const plan = await this.budgets.getById(planId);
+    if (!plan) throw new ApprovalServiceError("Budget not found", "NOT_FOUND");
+    if (plan.status !== "InApproval") {
+      throw new ApprovalServiceError(
+        "Budget is not awaiting approval",
+        "INVALID_STATE"
+      );
+    }
+    if (plan.currentApproverId !== actor.id) {
+      await this.recordDeniedAttempt(
+        actor,
+        plan.id,
+        "ApprovalDenied",
+        "You are not the current approver for this budget"
+      );
+      throw new AuthorizationError(
+        "You are not the current approver for this budget"
+      );
+    }
+    this.authz.assertPermission(actor, permission);
+    if (permission === "budget.approve" && actor.id === plan.ownerId) {
+      await this.recordDeniedAttempt(
+        actor,
+        plan.id,
+        "ApprovalDenied",
+        "Owner cannot approve their own budget"
+      );
+      throw new AuthorizationError("Owner cannot approve their own budget");
+    }
+    return plan;
+  }
+
+  private async invalidatePendingRoute(planId: string): Promise<void> {
+    const route = await this.routes.listByBudgetId(planId);
+    for (const step of route.filter((r) => r.status === "Pending")) {
+      step.status = "Invalidated";
+      await this.routes.saveStep(step);
+    }
   }
 }

@@ -6,6 +6,7 @@ import {
   repos,
 } from "@/infrastructure/di";
 import { buildSapCsv } from "@/infrastructure/export/sap-csv-writer";
+import { readApiError } from "@/lib/security/read-api-error";
 
 export async function GET(
   _req: Request,
@@ -14,6 +15,9 @@ export async function GET(
   const correlationId = crypto.randomUUID();
   try {
     const user = await getCurrentUser();
+    if (!user.permissionCodes.includes("report.export")) {
+      throw new AuthorizationError("Missing permission: report.export");
+    }
     const plan = await budgetPlanService.getById(params.id, user);
     if (plan.status !== "Approved") {
       return NextResponse.json(
@@ -53,21 +57,6 @@ export async function GET(
       },
     });
   } catch (e) {
-    if (e instanceof AuthorizationError) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: e.message, correlationId } },
-        { status: 403 }
-      );
-    }
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL",
-          message: e instanceof Error ? e.message : "Unexpected error",
-          correlationId,
-        },
-      },
-      { status: 500 }
-    );
+    return readApiError(e, correlationId);
   }
 }

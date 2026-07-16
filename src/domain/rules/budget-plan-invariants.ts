@@ -1,6 +1,17 @@
 import { Money } from "../value-objects/money";
 import { PeriodRange } from "../value-objects/period-range";
+import {
+  EDITABLE_BUDGET_STATUSES,
+  LOCKED_BUDGET_STATUSES,
+} from "../value-objects/budget-status";
 import type { BudgetLineItem, BudgetPlan, CostCenter } from "../entities";
+
+export class BudgetLockedError extends Error {
+  constructor(message = "This budget version is locked and cannot be modified") {
+    super(message);
+    this.name = "BudgetLockedError";
+  }
+}
 
 export interface ValidationIssue {
   field: string;
@@ -63,8 +74,25 @@ export function validateBudgetHeader(input: {
 }
 
 export function assertCanEditDraft(plan: BudgetPlan): void {
-  if (plan.status !== "Draft") {
-    throw new Error("Only Draft budgets can be edited");
+  if (!EDITABLE_BUDGET_STATUSES.has(plan.status)) {
+    throw new BudgetLockedError(
+      "Only Draft or Returned for Revision budgets can be edited"
+    );
+  }
+}
+
+export function assertNotLocked(plan: BudgetPlan): void {
+  if (LOCKED_BUDGET_STATUSES.has(plan.status)) {
+    throw new BudgetLockedError();
+  }
+}
+
+/** Owner may submit / resubmit from these statuses. */
+export function assertCanSubmit(plan: BudgetPlan): void {
+  if (plan.status !== "Draft" && plan.status !== "ReturnedForRevision") {
+    throw new Error(
+      "Only Draft or Returned for Revision budgets can be submitted"
+    );
   }
 }
 

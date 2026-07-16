@@ -2,13 +2,13 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { buildApprovalRoute, ApprovalRouteError } from "@/domain/rules/build-approval-route";
 import type { User } from "@/domain/entities";
 import { IDS, users } from "@/infrastructure/repositories/mock/seed";
-import { resetMockStore } from "@/infrastructure/repositories/mock/store";
+import { resetMockStore, mockStore } from "@/infrastructure/repositories/mock/store";
 import {
   approvalService,
   budgetPlanService,
   repos,
-  setCurrentUserId,
 } from "@/infrastructure/di";
+import { setMemoryUserId } from "@/infrastructure/session";
 
 function mapFromUsers(list: User[]) {
   return new Map(list.map((u) => [u.id, u]));
@@ -30,9 +30,19 @@ describe("buildApprovalRoute", () => {
     expect(route.map((r) => r.approverId)).toEqual([IDS.joyce]);
   });
 
-  it("returns empty route for root node", () => {
-    const route = buildApprovalRoute(IDS.joyce, mapFromUsers(users));
-    expect(route).toEqual([]);
+  it("GM is sole approver when owner reports directly to Joyce", () => {
+    const route = buildApprovalRoute(IDS.chris, mapFromUsers(users));
+    expect(route.map((r) => r.approverId)).toEqual([IDS.joyce]);
+    expect(route[0]?.role).toBe("gm");
+  });
+
+  it("throws when no GM exists in chain", () => {
+    const solo = structuredClone(users);
+    const joyce = solo.find((u) => u.id === IDS.joyce)!;
+    joyce.managerId = IDS.peter;
+    expect(() => buildApprovalRoute(IDS.joyce, mapFromUsers(solo))).toThrow(
+      ApprovalRouteError
+    );
   });
 
   it("fails on circular hierarchy", () => {
@@ -60,7 +70,7 @@ describe("ApprovalService", () => {
   });
 
   it("submits assistant budget to Peter then Joyce", async () => {
-    setCurrentUserId(IDS.patrick);
+    setMemoryUserId(IDS.patrick);
     const patrick = (await repos.users.getById(IDS.patrick))!;
     const plan = await budgetPlanService.createDraft(patrick, {
       budgetType: "Primary",
@@ -80,11 +90,11 @@ describe("ApprovalService", () => {
 
     const joyce = (await repos.users.getById(IDS.joyce))!;
     const final = await approvalService.approve(plan.id, joyce);
-    expect(final.status).toBe("Approved");
+    expect(final.status).toBe("PendingFinanceReview");
     expect(final.currentApproverId).toBeNull();
   });
 
-  it("auto-approves root node on submit", async () => {
+  it("GM submit enters Finance queue directly", async () => {
     const joyce = (await repos.users.getById(IDS.joyce))!;
     const plan = await budgetPlanService.createDraft(joyce, {
       budgetType: "Primary",
@@ -95,10 +105,11 @@ describe("ApprovalService", () => {
       lines: [{ glAccountId: "gl-860206", amount: 50000 }],
     });
     const submitted = await approvalService.submit(plan.id, joyce);
-    expect(submitted.status).toBe("Approved");
+    expect(submitted.status).toBe("PendingFinanceReview");
+    expect(submitted.currentApproverId).toBeNull();
   });
 
-  it("rejects with comment back to Draft", async () => {
+  it("returns for revision with comment", async () => {
     const patrick = (await repos.users.getById(IDS.patrick))!;
     const plan = await budgetPlanService.createDraft(patrick, {
       budgetType: "Primary",
@@ -110,11 +121,56 @@ describe("ApprovalService", () => {
     });
     await approvalService.submit(plan.id, patrick);
     const peter = (await repos.users.getById(IDS.peter))!;
-    const rejected = await approvalService.reject(
+    const returned = await approvalService.returnForRevision(
       plan.id,
       peter,
       "Reduce software licences"
     );
-    expect(rejected.status).toBe("Draft");
+    expect(returned.status).toBe("ReturnedForRevision");
+    expect(
+      mockStore.workflowHistory.some(
+        (w) =>
+          w.budgetVersionId === plan.id &&
+          w.action === "Returned" &&
+          w.stage === "ManagerReview"
+      )
+    ).toBe(true);
+  });
+
+  it("manager cannot reject; GM can reject permanently", async () => {
+    const patrick = (await repos.users.getById(IDS.patrick))!;
+    const plan = await budgetPlanService.createDraft(patrick, {
+      budgetType: "Primary",
+      fiscalYearId: IDS.fy2027,
+      fromPeriod: "2026-07-01",
+      toPeriod: "2027-06-30",
+      costCenterId: IDS.ccRelMgmt,
+      lines: [{ glAccountId: "gl-860206", amount: 100000 }],
+    });
+    await approvalService.submit(plan.id, patrick);
+    const peter = (await repos.users.getById(IDS.peter))!;
+    await expect(
+      approvalService.reject(plan.id, peter, "Exceeds annual allocation")
+    ).rejects.toThrow(/General Manager/i);
+
+    await approvalService.approve(plan.id, peter);
+    const joyce = (await repos.users.getById(IDS.joyce))!;
+    const rejected = await approvalService.reject(
+      plan.id,
+      joyce,
+      "Exceeds annual allocation"
+    );
+    expect(rejected.status).toBe("Rejected");
+    expect(
+      mockStore.workflowHistory.some(
+        (w) =>
+          w.budgetVersionId === plan.id &&
+          w.action === "Rejected" &&
+          w.stage === "Rejected"
+      )
+    ).toBe(true);
+    await expect(approvalService.submit(plan.id, patrick)).rejects.toThrow(
+      /Draft or Returned/
+    );
   });
 });

@@ -2,44 +2,52 @@
 
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageShell } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/empty-state";
-import { getCurrentUser, repos } from "@/infrastructure/di";
-import type { AuditLogEntry } from "@/domain/entities";
+import { SkeletonTable } from "@/components/shared/skeleton-table";
+import { ApiError, apiGet } from "@/lib/client-api";
+import type { AuditLogEntry, User } from "@/domain/entities";
 
 export default function AuditPage() {
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     void (async () => {
       try {
-        const user = await getCurrentUser();
-        if (!user.permissionCodes.includes("audit.view")) {
+        const me = await apiGet<{ user: User }>("/api/v1/me");
+        if (!me.user.permissionCodes.includes("audit.view")) {
           setError("You do not have permission to view the audit trail");
           return;
         }
-        setEntries(await repos.audits.list());
-        const users = await repos.users.getAll();
-        setNames(Object.fromEntries(users.map((u) => [u.id, u.name])));
+        setEntries(await apiGet<AuditLogEntry[]>("/api/v1/audit"));
+        const ref = await apiGet<{ users: User[] }>("/api/v1/reference");
+        setNames(Object.fromEntries(ref.users.map((u) => [u.id, u.name])));
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load audit");
+        if (e instanceof ApiError && e.status === 403) {
+          setError("You do not have permission to view the audit trail");
+        } else {
+          setError(e instanceof Error ? e.message : "Failed to load audit");
+        }
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
 
   return (
-    <div>
-      <PageHeader
-        title="Audit Trail"
-        description="Immutable log of system actions (append-only)"
-      />
+    <PageShell>
+      <PageHeader title="Audit Trail" />
+
       {error ? <p className="mb-3 text-kengen-red">{error}</p> : null}
-      {!error && entries.length === 0 ? (
-        <EmptyState title="No audit events yet" />
+      {loading ? <SkeletonTable /> : null}
+      {!loading && !error && entries.length === 0 ? (
+        <EmptyState fill title="No audit events" />
       ) : null}
-      {entries.length > 0 ? (
-        <div className="overflow-x-auto rounded border border-neutral-400/30 bg-white">
+      {!loading && entries.length > 0 ? (
+        <div className="flex-1 overflow-x-auto rounded border border-neutral-400/30 bg-white">
           <table className="w-full text-left text-meta">
             <thead className="bg-neutral-100 uppercase text-neutral-700">
               <tr>
@@ -63,13 +71,15 @@ export default function AuditPage() {
                   <td className="px-2 py-1.5">
                     {e.entity}:{e.entityId.slice(0, 12)}…
                   </td>
-                  <td className="px-2 py-1.5">{e.correlationId.slice(0, 12)}…</td>
+                  <td className="px-2 py-1.5">
+                    {e.correlationId.slice(0, 12)}…
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       ) : null}
-    </div>
+    </PageShell>
   );
 }

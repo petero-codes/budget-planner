@@ -5,6 +5,12 @@ export const metadata = {
   description: "Annual budgeting approval portal for KenGen ICT",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -12,7 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="font-sans">{children}</body>
+      <body className="font-sans antialiased">{children}</body>
     </html>
   );
 }

@@ -1,0 +1,489 @@
+﻿[
+  {
+    "file": "src/app/(portal)/access-denied/page.tsx",
+    "tag": "ActionLink",
+    "variant": "primary",
+    "label": "Return to Home"
+  },
+  {
+    "file": "src/app/(portal)/admin/fiscal-years/page.tsx",
+    "tag": "Button",
+    "variant": "primary",
+    "label": "Open new year"
+  },
+  {
+    "file": "src/app/(portal)/admin/fiscal-years/page.tsx",
+    "tag": "Button",
+    "variant": "warning",
+    "label": "void act(fy.id, \"close\")} > Close"
+  },
+  {
+    "file": "src/app/(portal)/admin/fiscal-years/page.tsx",
+    "tag": "Button",
+    "variant": "warning",
+    "label": "void act(fy.id, \"reopen\")} > Reopen"
+  },
+  {
+    "file": "src/app/(portal)/admin/fiscal-years/page.tsx",
+    "tag": "Button",
+    "variant": "danger",
+    "label": "void act(fy.id, \"archive\")} > Archive"
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "{editingId ? \"Save\" : \"Create\"}"
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "Cancel"
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "{ setEditingId(department.id); setName(department."
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "danger",
+    "label": "void setActive(department, false)} > Archive"
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "void setActive(department, true)} > Restore"
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "Cancel edit"
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "{editingId ? \"Save changes\" : \"Create cost center\""
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "startEdit(center)} > Edit"
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "danger",
+    "label": "void archive(center)} > Archive"
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "ActionLink",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "Financial Years"
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "Open year"
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "void act(fy, \"setCurrent\", \"set as current\") } > S"
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "warning",
+    "label": "void act(fy, \"close\", \"closed\")} > Close"
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "warning",
+    "label": "void act(fy, \"reopen\", \"reopened\")} > Reopen"
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "danger",
+    "label": "void act(fy, \"archive\", \"archived\")} > Archive"
+  },
+  {
+    "file": "src/app/(portal)/admin/_master-data-admin.tsx",
+    "tag": "Button",
+    "variant": "warning",
+    "label": "void act(fy, \"reopen\", \"reopened\")} > Reopen"
+  },
+  {
+    "file": "src/app/(portal)/admin/_users-admin.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "Cancel edit"
+  },
+  {
+    "file": "src/app/(portal)/admin/_users-admin.tsx",
+    "tag": "Button",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "{editingId ? \"Save changes\" : \"Create user\"}"
+  },
+  {
+    "file": "src/app/(portal)/admin/_users-admin.tsx",
+    "tag": "Button",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "Reset password"
+  },
+  {
+    "file": "src/app/(portal)/admin/_users-admin.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "{ setResetUser(null); setResetPassword(\"\"); }} > C"
+  },
+  {
+    "file": "src/app/(portal)/admin/_users-admin.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "startEdit(user)}> Edit"
+  },
+  {
+    "file": "src/app/(portal)/admin/_users-admin.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "{ setResetUser(user); setResetPassword(\"\"); setErr"
+  },
+  {
+    "file": "src/app/(portal)/admin/_users-admin.tsx",
+    "tag": "Button",
+    "variant": "danger",
+    "label": "void deactivate(user)} > Deactivate"
+  },
+  {
+    "file": "src/app/(portal)/approvals/page.tsx",
+    "tag": "ActionLink",
+    "variant": "awaitingMe ? \"warning\" : \"secondary\"",
+    "label": "{awaitingMe ? \"Review\" : \"View\"}"
+  },
+  {
+    "file": "src/app/(portal)/budgets/page.tsx",
+    "tag": "ActionLink",
+    "variant": "primary",
+    "label": "Create Budget"
+  },
+  {
+    "file": "src/app/(portal)/budgets/page.tsx",
+    "tag": "ActionLink",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "View"
+  },
+  {
+    "file": "src/app/(portal)/budgets/page.tsx",
+    "tag": "ActionLink",
+    "variant": "plan.status === \"ReturnedForRevision\" ? \"warning\" : \"secondary\"",
+    "label": "Edit"
+  },
+  {
+    "file": "src/app/(portal)/budgets/[id]/page.tsx",
+    "tag": "ActionLink",
+    "variant": "plan.status === \"ReturnedForRevision\" ? \"warning\" : \"secondary\"",
+    "label": "{plan.status === \"ReturnedForRevision\" ? \"Edit & r"
+  },
+  {
+    "file": "src/app/(portal)/budgets/[id]/page.tsx",
+    "tag": "Button",
+    "variant": "primary",
+    "label": "void onResubmit()} > Resubmit"
+  },
+  {
+    "file": "src/app/(portal)/budgets/[id]/page.tsx",
+    "tag": "Button",
+    "variant": "primary",
+    "label": "(children)"
+  },
+  {
+    "file": "src/app/(portal)/budgets/[id]/page.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "Export SAP Package"
+  },
+  {
+    "file": "src/app/(portal)/budgets/[id]/page.tsx",
+    "tag": "Button",
+    "variant": "primary",
+    "label": "void onApprove()} > Approve"
+  },
+  {
+    "file": "src/app/(portal)/budgets/[id]/page.tsx",
+    "tag": "Button",
+    "variant": "warning",
+    "label": "void onReturn()} > Return"
+  },
+  {
+    "file": "src/app/(portal)/budgets/[id]/page.tsx",
+    "tag": "Button",
+    "variant": "danger",
+    "label": "void onReject()} > Reject"
+  },
+  {
+    "file": "src/app/(portal)/error.tsx",
+    "tag": "Button",
+    "variant": "primary",
+    "label": "reset()}> Try again"
+  },
+  {
+    "file": "src/app/(portal)/error.tsx",
+    "tag": "ActionLink",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "Go home"
+  },
+  {
+    "file": "src/app/(portal)/finance/page.tsx",
+    "tag": "Button",
+    "variant": "primary",
+    "label": "void claim(r.planId)} aria-label={`Claim budget ${"
+  },
+  {
+    "file": "src/app/(portal)/finance/page.tsx",
+    "tag": "Button",
+    "variant": "success",
+    "label": "void finalize(r.planId)} aria-label=\"Finalize budg"
+  },
+  {
+    "file": "src/app/(portal)/finance/page.tsx",
+    "tag": "Button",
+    "variant": "warning",
+    "label": "setReturnTarget(r.planId)} aria-label=\"Return for "
+  },
+  {
+    "file": "src/app/(portal)/finance/page.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "void release(r.planId)} aria-label=\"Release claim\""
+  },
+  {
+    "file": "src/app/(portal)/finance/page.tsx",
+    "tag": "ActionLink",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "View"
+  },
+  {
+    "file": "src/app/(portal)/finance/page.tsx",
+    "tag": "ActionLink",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "SAP Package"
+  },
+  {
+    "file": "src/app/(portal)/finance/page.tsx",
+    "tag": "ActionLink",
+    "variant": "secondary",
+    "label": "Open reports"
+  },
+  {
+    "file": "src/app/(portal)/finance/page.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "{ setReturnTarget(null); setReturnReason(\"\"); }} >"
+  },
+  {
+    "file": "src/app/(portal)/finance/page.tsx",
+    "tag": "Button",
+    "variant": "warning",
+    "label": "void returnPlan(returnTarget)} > Return"
+  },
+  {
+    "file": "src/app/(portal)/finance/sap/[id]/page.tsx",
+    "tag": "ActionLink",
+node : COUNT 80
+At C:\Users\Administrator\AppData\Local\Temp\ps-script-aef0666d-73c6-4f6d-9b02-336dec5ef8de.ps1:107 char:1
++ node scripts/audit-buttons.js 2>&1 | Out-File -Encoding utf8 scripts/ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (COUNT 80:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    "variant": "secondary",
+    "label": "Back to Finance"
+  },
+  {
+    "file": "src/app/(portal)/finance/sap/[id]/page.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "download(\"csv\")} > Download CSV"
+  },
+  {
+    "file": "src/app/(portal)/finance/sap/[id]/page.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "download(\"excel\")} > Download Excel"
+  },
+  {
+    "file": "src/app/(portal)/finance/sap/[id]/page.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "void printPdf()} > Download PDF"
+  },
+  {
+    "file": "src/app/(portal)/home/page.tsx",
+    "tag": "ActionLink",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "Open queue"
+  },
+  {
+    "file": "src/app/(portal)/home/page.tsx",
+    "tag": "ActionLink",
+    "variant": "primary",
+    "label": "Create Budget"
+  },
+  {
+    "file": "src/app/(portal)/home/page.tsx",
+    "tag": "ActionLink",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "Open queue"
+  },
+  {
+    "file": "src/app/(portal)/home/page.tsx",
+    "tag": "ActionLink",
+    "variant": "warning",
+    "label": "Review"
+  },
+  {
+    "file": "src/app/(portal)/home/page.tsx",
+    "tag": "ActionLink",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "View"
+  },
+  {
+    "file": "src/app/(portal)/home/page.tsx",
+    "tag": "ActionLink",
+    "variant": "warning",
+    "label": "Edit"
+  },
+  {
+    "file": "src/app/(portal)/home/page.tsx",
+    "tag": "ActionLink",
+    "variant": "primary",
+    "label": "Resubmit"
+  },
+  {
+    "file": "src/app/(portal)/notifications/page.tsx",
+    "tag": "Button",
+    "variant": "primary",
+    "label": "void caterFor(n)} aria-label=\"Open related budget "
+  },
+  {
+    "file": "src/app/(portal)/notifications/page.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "void dismissOnly(n.id)} aria-label=\"Dismiss notifi"
+  },
+  {
+    "file": "src/app/(portal)/reports/page.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "Export CSV"
+  },
+  {
+    "file": "src/app/(portal)/reports/page.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "Export Excel"
+  },
+  {
+    "file": "src/app/(portal)/reports/page.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "window.print()} > Export PDF"
+  },
+  {
+    "file": "src/app/error.tsx",
+    "tag": "Button",
+    "variant": "primary",
+    "label": "reset()}> Try again"
+  },
+  {
+    "file": "src/app/error.tsx",
+    "tag": "ActionLink",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "Go home"
+  },
+  {
+    "file": "src/app/login/page.tsx",
+    "tag": "Button",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "Sign in"
+  },
+  {
+    "file": "src/app/verify-email/page.tsx",
+    "tag": "Button",
+    "variant": "(defaultΓåÆprimary)",
+    "label": "Continue to sign in"
+  },
+  {
+    "file": "src/app/verify-email/page.tsx",
+    "tag": "Button",
+    "variant": "primary",
+    "label": "Back to sign in"
+  },
+  {
+    "file": "src/app/verify-email/page.tsx",
+    "tag": "ActionLink",
+    "variant": "secondary",
+    "label": "Back to sign in"
+  },
+  {
+    "file": "src/components/budget/budget-plan-form.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "router.push(`/budgets/${activeConflict.id}`)} > Op"
+  },
+  {
+    "file": "src/components/budget/budget-plan-form.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "router.push(\"/budgets\")} > Cancel"
+  },
+  {
+    "file": "src/components/budget/budget-plan-form.tsx",
+    "tag": "Button",
+    "variant": "danger",
+    "label": "setLines((prev) => prev.filter((_, i) => i !== ind"
+  },
+  {
+    "file": "src/components/budget/budget-plan-form.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "setLines((prev) => [...prev, { glAccountId: \"\", am"
+  },
+  {
+    "file": "src/components/budget/budget-plan-form.tsx",
+    "tag": "Button",
+    "variant": "primary",
+    "label": "void saveDraft(false)} > Save"
+  },
+  {
+    "file": "src/components/budget/budget-plan-form.tsx",
+    "tag": "Button",
+    "variant": "primary",
+    "label": "{ if ( window.confirm( loadedPlanId && lines.lengt"
+  },
+  {
+    "file": "src/components/dashboard/gm-dashboard.tsx",
+    "tag": "ActionLink",
+    "variant": "secondary",
+    "label": "Open latest budget"
+  },
+  {
+    "file": "src/components/layout/footer.tsx",
+    "tag": "Button",
+    "variant": "secondary",
+    "label": "{ /* Placeholder ΓÇö wire to helpdesk when available"
+  }
+]
