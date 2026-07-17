@@ -73,6 +73,8 @@ Requires **ODBC Driver 17 for SQL Server** (`msnodesqlv8`).
 | `docs/open-decisions.md` | Unresolved items |
 | `docs/domain-model.md` · `docs/state-machines.md` · `docs/api-contracts.md` · `docs/permission-matrix.md` | Domain / workflow / API / RBAC |
 | `docs/production-readiness.md` | Go-live gates |
+| `docs/security-checklist.md` | Pre-release security evidence |
+| `docs/repository-cleanup.md` | Stabilization cleanup inventory and rationale |
 | `CHANGELOG.md` | User-visible changes |
 
 ## Release milestones

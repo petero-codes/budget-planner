@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-07-17 — Repository cleanup (stabilization)
+
+### Removed
+
+- Public self-service auth surfaces (register / forgot / reset / verify-email pages and APIs) and unused `mailer.ts`.
+- One-time button-audit scripts/dumps and dated agent audit markdown (not source of truth).
+- Dead auth helpers (token generation, unused auth-store methods).
+
+### Changed
+
+- Auth schemas and middleware rate limits narrowed to login-only.
+- Docs / README / `.env.example` updated for admin-provisioned accounts (no SMTP mail-link config).
+- Empty `src/pages/` kept via `.gitkeep` (Next.js still scans the folder in dev).
+
+### Added
+
+- `docs/repository-cleanup.md` — removal inventory, rationale table, and verification gates.
+- `src/lib/security/client-ip.ts` — shared client IP helper for rate limiting / audit.
+
+See `docs/repository-cleanup.md` and `docs/security-checklist.md`.
+
 ## 2026-07-16 — Engineering governance & release milestones
 
 ### Added

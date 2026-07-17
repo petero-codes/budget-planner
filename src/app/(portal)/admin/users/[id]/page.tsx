@@ -267,15 +267,16 @@ export default function AdminUserDetailPage() {
           active: form.active,
         }
       );
+      const previousActive = user?.active ?? form.active;
       const nextForm = formFromUser(updated);
       setUser(updated);
       setForm(nextForm);
       setBaseline(nextForm);
       setNotice("User updated successfully.");
       const auditAction =
-        !user.active && updated.active
+        !previousActive && updated.active
           ? "UserActivated"
-          : user.active && !updated.active
+          : previousActive && !updated.active
             ? "UserDeactivated"
             : "UserUpdated";
       setAudits((current) => [
