@@ -58,8 +58,8 @@
 | PATCH | /api/v1/admin/fiscal-years/:id | `{ action: close \| reopen \| archive \| setCurrent }` |
 | GET | /api/v1/admin/submission-status | Stored cost-center submission statuses for current (or requested) FY |
 
-Public self-registration and forgot-password reset are disabled. Account creation
-and password resets require `admin.users`.
+Public self-registration and forgot-password flows are not part of the product.
+Account creation and password resets require `admin.users`.
 
 ### POST /api/v1/budget-plans
 

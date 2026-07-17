@@ -1169,8 +1169,6 @@ export async function getPositionById(id: string): Promise<Position | null> {
   return row ? mapPosition(row) : null;
 }
 
-export const SQL_REPOSITORY_STATUS = "Implemented: mssql + BudgetOperations";
-
 export {
   SqlBudgetLineageRepository,
   SqlWorkflowHistoryRepository,

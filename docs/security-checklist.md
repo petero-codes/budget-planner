@@ -15,5 +15,5 @@
 - [x] Audit of unauthorized access attempts
 - [x] Owner cannot approve own budget
 - [x] Amount > 0 enforced domain + DB CHECK
+- [x] Public self-service auth removed — admin-provisioned accounts only
 - [ ] Redis-backed rate limit for multi-instance production
-- [ ] Production SMTP for verification / password-reset emails

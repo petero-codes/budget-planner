@@ -51,7 +51,7 @@ self-service password reset are disabled.
 | `SQLSERVER_CONNECTION_STRING` | App runtime: SQL auth as `app_budget_ops` (see `.env.example` and `docs/migrations/005-app-budget-ops-role.sql`). Seed/admin scripts may use Trusted_Connection. |
 | `DEFAULT_CURRENCY` | KES |
 | `SAP_EXPORT_VERSION_DEFAULT` | V1 |
-| `APP_BASE_URL` | Base URL used by any retained system email links |
+| `SESSION_SECRET` | HMAC secret for signed session cookies (min 32 chars; required in production) |
 
 ### SQL Server
 

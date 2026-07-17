@@ -1,4 +1,4 @@
-import { randomBytes, scryptSync, timingSafeEqual, createHash } from "crypto";
+import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 
 /**
  * Password hashing with Node's built-in scrypt (no external deps).
@@ -47,16 +47,6 @@ export function verifyPassword(password: string, stored: string): boolean {
   }
 }
 
-/** Opaque one-time token: raw value goes in the email link, only its hash is stored. */
-export function generateToken(): { raw: string; hash: string } {
-  const raw = randomBytes(32).toString("base64url");
-  return { raw, hash: hashToken(raw) };
-}
-
-export function hashToken(raw: string): string {
-  return createHash("sha256").update(raw).digest("hex");
-}
-
 export interface PasswordPolicyIssue {
   message: string;
 }
@@ -70,20 +60,4 @@ export function checkPasswordPolicy(password: string): PasswordPolicyIssue[] {
     issues.push({ message: "Password must contain letters and numbers" });
   }
   return issues;
-}
-
-/** Secure temporary password for admin reset / create (letters + digits). */
-export function generateTemporaryPassword(length = 12): string {
-  const alphabet =
-    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-  const bytes = randomBytes(length);
-  let out = "";
-  for (let i = 0; i < length; i++) {
-    out += alphabet[bytes[i]! % alphabet.length];
-  }
-  // Guarantee policy: at least one letter and one digit.
-  if (!/[a-zA-Z]/.test(out) || !/[0-9]/.test(out)) {
-    return generateTemporaryPassword(length);
-  }
-  return out;
 }

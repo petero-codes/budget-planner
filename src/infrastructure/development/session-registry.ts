@@ -66,11 +66,6 @@ export function listDevSessions(): RegisteredSession[] {
   );
 }
 
-export function touchDevSession(sessionId: string): void {
-  const s = sessions.get(sessionId);
-  if (s) s.lastSeenAt = new Date().toISOString();
-}
-
 export function invalidateDevSession(sessionId: string): boolean {
   const s = sessions.get(sessionId);
   if (!s) return false;

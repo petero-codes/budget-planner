@@ -137,7 +137,7 @@
 |-------|-------|
 | **Date** | 2026-07-13 |
 | **Status** | Accepted |
-| **Decision** | Signed session cookies; production requires `SESSION_SECRET` (≥32). Permissions enforced in middleware, API routes, and application services. Frontend never trusted for authorization. Public self-service register/forgot/reset remain stubbed (admin-provisioned accounts). |
+| **Decision** | Signed session cookies; production requires `SESSION_SECRET` (≥32). Permissions enforced in middleware, API routes, and application services. Frontend never trusted for authorization. No public self-service register/forgot/reset — accounts are admin-provisioned only. |
 | **Why** | Enterprise credential model + defense in depth against IDOR and privilege escalation. |
 | **Alternatives** | JWT in localStorage only; UI-only hiding of menus; open registration. |
 | **Consequences** | Role/permission changes may lag until re-login if claims are embedded in the session cookie (known residual). APIs must still load authoritative user from persistence. |

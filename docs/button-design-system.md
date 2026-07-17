@@ -97,8 +97,4 @@ Do not swap these. Different stages, different colors.
 
 ## Enforcement
 
-When UI drifts, re-run a button compliance audit:
-
-> Audit every page… verify every button follows this design system… replace non-compliant instances… report variant and compliance status.
-
-See `docs/button-compliance-audit.md` for the latest inventory.
+When UI drifts, re-audit pages against this design system and replace non-compliant button variants.

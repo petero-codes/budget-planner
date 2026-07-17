@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { assertSameOrigin } from "@/lib/security/same-origin";
+import { clientIpOrUnknown } from "@/lib/security/client-ip";
 import {
   verifySessionClaims,
   type SessionClaims,
@@ -25,13 +26,13 @@ const GENERAL_WINDOW_MS = 60 * 1000;
 const SENSITIVE_LIMIT = 10; // workflow mutations per window per IP
 const SENSITIVE_WINDOW_MS = 60 * 1000;
 
-const AUTH_LIMIT = 10; // login / register / forgot / reset per window per IP
+const AUTH_LIMIT = 10; // login attempts per window per IP
 const AUTH_WINDOW_MS = 5 * 60 * 1000;
 
 // Approval + finance + amendment mutations (path segment before end)
 const SENSITIVE_PATH =
   /\/(submit|approve|reject|return|claim|finalize|release|amend)$/;
-const AUTH_PATH = /^\/api\/v1\/auth\/(login|register|forgot-password|reset-password|verify-email)$/;
+const AUTH_PATH = /^\/api\/v1\/auth\/login$/;
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 const SESSION_COOKIE = "kengen_budget_uid";
@@ -49,14 +50,6 @@ const PORTAL_PREFIXES = [
   "/support",
   "/access-denied",
 ];
-
-function clientIp(req: NextRequest): string {
-  return (
-    req.ip ??
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    "unknown"
-  );
-}
 
 function tooManyRequests(retryAfterSeconds: number) {
   return NextResponse.json(
@@ -195,7 +188,7 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  const ip = clientIp(req);
+  const ip = clientIpOrUnknown(req);
 
   const general = rateLimit(`api:${ip}`, GENERAL_LIMIT, GENERAL_WINDOW_MS);
   if (!general.ok) {

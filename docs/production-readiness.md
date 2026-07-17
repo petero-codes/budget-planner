@@ -2,16 +2,14 @@
 
 KenGen ICT Budget Operations — v1 release package.
 
-> **Supersession (2026-07-16):** For the independent code re-audit, findings, remediations, and updated score, see **[`docs/production-readiness-audit-2026-07-16.md`](./production-readiness-audit-2026-07-16.md)**. Where this document and the audit conflict, prefer the audit. Operational blocking conditions below remain in force.
-
 | Field | Value |
 |-------|-------|
 | **Document Version** | 1.3 |
-| **Status** | Conditionally approved — see audit · governance frozen 2026-07-16 |
+| **Status** | Conditionally approved · governance frozen 2026-07-16 |
 | **Last Updated** | 2026-07-16 |
 | **Owner** | ICT Budgeting Platform Team |
 | **Release milestone** | **Milestone 2 — Stabilization** (Milestone 1 Code Complete ✅). See `docs/ENGINEERING_GOVERNANCE.md`. |
-| **Evidence base** | Unit tests (67/67 after 2026-07-16 audit remediations), security checklist, lineage/finance migration (`007`), audit report |
+| **Evidence base** | Unit tests, security checklist, lineage/finance migration (`007`) |
 
 **Document freeze:** Do not expand feature scope in this review. Stabilization work and Milestone 3 validation (staging/E2E/UAT) are the next gates — not further product expansion.
 
@@ -93,7 +91,7 @@ If any assumption changes (multi-instance, external object storage, optional Fin
 | Attachment upload UI/API | TD-002 | Schema + inherit-on-amend exist; product UX deferred. |
 | SMTP email delivery | TD-001 | Optional; do not enable until implemented. |
 | Redis-backed rate limiting | TD-004 | In-memory store accepted for single-node deployment. |
-| Public self-register / forgot / reset password | — | Stubbed 403; admin-managed accounts only. |
+| Public self-register / forgot / reset password | — | Removed; admin-managed accounts only. |
 | Native PDF SAP export | TD-003 | Print / JSON stub only. |
 
 Reviewers: **v1 means the Included table only.** Deferred items are not release blockers unless Product re-opens scope.
@@ -363,7 +361,7 @@ Conscious deferrals for v1. These are **accepted**, not forgotten. Changing Stat
 
 | ID | Item | Status | Reason | Target |
 |----|------|--------|--------|--------|
-| TD-001 | SMTP / Graph mailer implementation | Deferred | Feature not enabled; public auth mail paths stubbed 403. Do not set `SMTP_HOST` until shipped. | v1.1 |
+| TD-001 | SMTP / Graph mailer implementation | Deferred | No mailer in v1; accounts are admin-managed. Revisit if email notifications are required. | v1.1 |
 | TD-002 | Attachment upload UI/API | Deferred | Schema + inherit-on-amend exist; product UX formally deferred for v1. | v1.1 |
 | TD-003 | Native SAP PDF generation | Deferred | Print / audited stub only; honest UI labels. | v1.1 |
 | TD-004 | Redis-backed rate limiting | Deferred | In-memory accepted for single-node deployment. | HA / multi-instance |
