@@ -19,6 +19,22 @@
 
 **No new features** until this progression completes. New features expand the test surface and delay a stable release.
 
+### Critical spine (browser / role verification)
+
+Record Pass/Fail with evidence in this document (happy path, negatives, and UAT matrices). Informal personal checklists are not release evidence.
+
+| Area | Scope |
+|------|--------|
+| Auth session | Login / logout |
+| Administration | User management; administrator password reset; fiscal year management |
+| Budget path | Create / edit / submit |
+| Approval path | Manager approve/return; GM approve/return/reject |
+| Finance path | Claim / finalize / return (release where applicable) |
+| Observability | Notifications; reports; CSV / SAP export |
+| Dev-only | Development Toolkit — confirm unavailable unless dual/triple gate is met |
+
+After spine + full matrix + ops checks: release dossier → **Go / Conditional Go / No Go** → tag `v1.0.0` only on Go. Resist indefinite polish once acceptance criteria are met (ADR-012 / ADR-014).
+
 ---
 
 ## Prerequisites

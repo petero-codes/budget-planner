@@ -50,7 +50,9 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
   const [fromPeriod, setFromPeriod] = useState("2026-07-01");
   const [toPeriod, setToPeriod] = useState("2027-06-30");
   const [description, setDescription] = useState("");
-  const [lines, setLines] = useState([{ glAccountId: "", amount: "" }]);
+  const [lines, setLines] = useState([
+    { key: crypto.randomUUID(), glAccountId: "", amount: "" },
+  ]);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<ExistingActiveBudget | null>(null);
   const [saving, setSaving] = useState(false);
@@ -117,6 +119,7 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
           setDescription(plan.description ?? "");
           setLines(
             plan.lines.map((l) => ({
+              key: crypto.randomUUID(),
               glAccountId: l.glAccountId,
               amount: String(Math.trunc(l.amount)),
             }))
@@ -184,6 +187,20 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
     setLines((prev) =>
       prev.map((line, i) => (i === index ? { ...line, [field]: next } : line))
     );
+  }
+
+  function removeLine(lineKey: string) {
+    setLines((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((line) => line.key !== lineKey);
+    });
+  }
+
+  function addLine() {
+    setLines((prev) => [
+      ...prev,
+      { key: crypto.randomUUID(), glAccountId: "", amount: "" },
+    ]);
   }
 
   async function saveDraft(submitAfter = false) {
@@ -393,36 +410,43 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
         </label>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-white/50 bg-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-md">
-        <table className="w-full text-left text-body">
-          <thead className="bg-white/50 text-meta uppercase text-neutral-700">
-            <tr>
-              <th className="px-2 py-1.5">#</th>
-              <th className="px-2 py-1.5">Cost Element (GL)</th>
-              <th className="px-2 py-1.5">Amount (KES)</th>
-              <th className="px-2 py-1.5" />
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map((line, index) => (
-              <tr key={index} className="border-t border-white/40">
-                <td className="px-2 py-1.5 text-meta">{index + 1}</td>
-                <td className="relative z-10 px-2 py-1.5">
-                  <GlassSelect
-                    aria-label={`GL account line ${index + 1}`}
-                    value={line.glAccountId}
-                    onChange={(v) => updateLine(index, "glAccountId", v)}
-                    options={glOptions}
-                    menuClassName="min-w-[16rem]"
-                  />
-                </td>
-                <td className="px-2 py-1.5">
+      <div className="rounded-2xl border border-white/50 bg-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-md">
+        <div className="border-b border-white/40 bg-white/50 px-3 py-2 text-meta uppercase text-neutral-700">
+          Budget lines
+        </div>
+        <ul className="divide-y divide-white/40">
+          {lines.map((line, index) => {
+            const canRemove = lines.length > 1;
+            return (
+              <li
+                key={line.key}
+                className="grid gap-2 p-3 sm:grid-cols-[auto_minmax(0,1fr)_8rem_auto] sm:items-end"
+              >
+                <span className="text-meta text-neutral-600 sm:pb-2">
+                  #{index + 1}
+                </span>
+                <label className="block min-w-0">
+                  <span className="text-meta text-neutral-700">
+                    Cost Element (GL)
+                  </span>
+                  <div className="mt-1">
+                    <GlassSelect
+                      aria-label={`GL account line ${index + 1}`}
+                      value={line.glAccountId}
+                      onChange={(v) => updateLine(index, "glAccountId", v)}
+                      options={glOptions}
+                      menuClassName="min-w-[16rem]"
+                    />
+                  </div>
+                </label>
+                <label className="block">
+                  <span className="text-meta text-neutral-700">Amount (KES)</span>
                   <input
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
                     placeholder="0"
-                    className="glass-select"
+                    className="glass-select mt-1"
                     value={line.amount}
                     onChange={(e) => updateLine(index, "amount", e.target.value)}
                     onKeyDown={(e) => {
@@ -431,35 +455,54 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
                       }
                     }}
                   />
-                </td>
-                <td className="px-2 py-1.5">
+                </label>
+                <div className="flex flex-col items-stretch gap-1 sm:items-end">
                   <Button
                     type="button"
                     variant="danger"
                     size="compact"
                     icon={Trash2}
-                    onClick={() =>
-                      setLines((prev) => prev.filter((_, i) => i !== index))
+                    disabled={!canRemove}
+                    title={
+                      canRemove
+                        ? `Remove line ${index + 1}`
+                        : "Add another line first — at least one line is required"
                     }
-                    disabled={lines.length === 1}
-                    aria-label={`Remove line ${index + 1}`}
+                    aria-label={
+                      canRemove
+                        ? `Remove line ${index + 1}`
+                        : "Cannot remove the last budget line"
+                    }
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!canRemove) return;
+                      removeLine(line.key);
+                    }}
                   >
                     Remove
                   </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  {!canRemove ? (
+                    <span className="text-[11px] text-neutral-500 sm:max-w-[7rem] sm:text-right">
+                      Add a line to enable Remove
+                    </span>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
         <div className="flex items-center justify-between border-t border-white/40 px-3 py-2">
           <Button
             type="button"
             variant="secondary"
             size="compact"
             icon={Plus}
-            onClick={() =>
-              setLines((prev) => [...prev, { glAccountId: "", amount: "" }])
-            }
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              addLine();
+            }}
           >
             Add line
           </Button>

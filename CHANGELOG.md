@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-07-17 — Feature E2E proof standard
+
+### Added
+
+- `docs/feature-e2e-proof.md` — inventory of critical features with COMPLETE / INCOMPLETE under a 12-point trace (UI → API → service → domain → repo → DB → audit → notifications → permission → test → manual → expected).
+- Cursor rule `.cursor/rules/feature-e2e-proof.mdc` — agents must not claim completeness without that trace.
+- Definition of Done + governance updated to bind the proof rule.
+
+### Explicit non-claim
+
+- Western Region seed user is **not** implemented and will not be added unless requested.
+
+## 2026-07-17 — ADR-009 sync & release execution framing
+
+### Changed
+
+- ADR-009 Consequences aligned with live `assertProductionSqlDriver()` fail-closed behavior in `di.ts` (ADR-013).
+- Engineering governance and staging acceptance: formal critical spine + path to `v1.0.0` (execution only; no further architecture).
+- Repository cleanup note: manual validation framed as release-gate evidence for `staging-e2e-acceptance.md`, not a personal checklist.
+
 ## 2026-07-17 — Repository cleanup (stabilization)
 
 ### Removed

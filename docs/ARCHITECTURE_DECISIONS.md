@@ -127,7 +127,7 @@
 | **Decision** | Persistence via `REPOSITORY_DRIVER=mock|sql`. Production uses `sql` against SQL Server (Express supported) through parameterized queries / ODBC (`msnodesqlv8` as configured). Never bypass repositories; never inline SQL from UI. App login should be least-privilege (`app_budget_ops`). |
 | **Why** | Testability (mock) and production safety (SQL + least privilege). |
 | **Alternatives** | ORM from Application layer; always-on SQL only; sa/admin app credentials. |
-| **Consequences** | Ops must set `REPOSITORY_DRIVER=sql` and connection string before production. Default `mock` if unset is a known residual risk (document in deploy checklist). |
+| **Consequences** | Ops must set `REPOSITORY_DRIVER=sql` and a valid connection string before production runtime. Unset driver still defaults to `mock` in non-production (`next dev`) for local testability. **Production runtime fail-closes:** `assertProductionSqlDriver()` in `src/infrastructure/di.ts` throws if `NODE_ENV=production` and the driver is not `sql`, except during Next.js production build prerender (`NEXT_PHASE=phase-production-build`). Do not treat “default mock” as an acceptable production residual — the residual is limited to local/dev default and the build-phase exception. |
 
 ---
 

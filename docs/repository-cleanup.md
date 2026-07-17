@@ -111,18 +111,24 @@ Static checks:
 - [x] Build route table includes `/login` only for public auth; no register/forgot/reset/verify routes
 - [x] `.env.example` has placeholders only (no production secrets); `.env*` gitignored except example
 
-Manual smoke (operator):
+Manual validation (release gate — not a personal reminder):
 
-- [ ] Login / logout
-- [ ] Admin password reset
-- [ ] Role-based navigation
-- [ ] User management
-- [ ] Budget workflow
-- [ ] Finance workflow
-- [ ] Reports page loads when authenticated
+Evidence belongs in **`docs/staging-e2e-acceptance.md`**. Cleanup alone does not clear Milestone 3. Critical spine before Go:
+
+| Area | Scope |
+|------|--------|
+| Auth | Login / logout |
+| Admin | User management; administrator password reset; fiscal year management |
+| Budget | Create / edit / submit |
+| Approval | Manager path; GM path |
+| Finance | Claim / finalize / return |
+| Observability | Notifications; reports; CSV / SAP export |
+| Dev-only | Development Toolkit (must stay gated off outside development) |
+
+Automated gates above are satisfied for this cleanup; role/browser UAT remains **open** until staging evidence is recorded.
 
 ---
 
 ## Status
 
-Cleanup verified and published to `origin/main` on [petero-codes/budget-planner](https://github.com/petero-codes/budget-planner).
+Cleanup verified and published to `origin/main` on [petero-codes/budget-planner](https://github.com/petero-codes/budget-planner). Remaining path to `v1.0.0`: execution — staging E2E/UAT, ops config verification, defect fixes, release dossier (Go / Conditional Go / No Go). See `docs/ENGINEERING_GOVERNANCE.md`.

@@ -174,6 +174,16 @@ Release decisions are **objective**. Do not mark Milestone 2 Complete or product
 
 Numeric gate remains: **0 Critical · 0 High · ≤5 Medium** (open, non-accepted). Deferred TD IDs do not count as Critical/High.
 
+### Path to `v1.0.0` (execution only)
+
+1. Complete browser / role smoke against the critical spine (evidence into `staging-e2e-acceptance.md`).  
+2. Run the full staging E2E + UAT matrices.  
+3. Verify production configuration (`SESSION_SECRET`, `REPOSITORY_DRIVER=sql`, HTTPS, least-privilege SQL, backups/restore).  
+4. Fix defects found in UAT — no scope expansion.  
+5. Produce the release dossier with **Go / Conditional Go / No Go**.  
+6. On Go: tag `v1.0.0`, deploy, enable monitoring, confirm backup/restore and rollback.  
+7. Enter maintenance: bug/security/doc fixes only unless stakeholder reopens scope (ADR-012).
+
 ### Architecture freeze (until `v1.0.0`)
 
 **Forbidden** without explicit stakeholder approval: schema redesigns, workflow redesigns, permission redesigns, UI redesigns, library migrations, major refactors.
@@ -207,6 +217,12 @@ Clear finish line — not an endless improvement cycle.
 - **Clear Priority Documentation Drift release gate**  
 - Meet numeric M2 exit criteria above  
 
+**Foundation already in place (do not rebuild):** Clean Architecture; SQL Server persistence; RBAC; hierarchical approval; lineage/amendments; finance claim/release/finalize; audit writers on many mutations; notifications; active-budget conflict prevention; fiscal year management; development toolkit (dev-gated); ADRs; governance; security checklist; production-readiness docs; CI-quality gates (lint / build / unit tests).
+
+**Do not claim every spine feature “complete.”** Trace claims with the 12-point proof in `docs/feature-e2e-proof.md`. Known **INCOMPLETE** examples: login/logout tests+service layer, admin reset-password test, budget `updateDraft` test, reports/audit list tests, notifications without application service.
+
+**Remaining work is execution, not architecture.** Prefer verifying and shipping over redesign. Additional polishing after acceptance criteria are met has diminishing returns — tag `v1.0.0` and enter maintenance.
+
 ### Milestone 3 — Validation
 
 - Staging deployment  
@@ -214,6 +230,20 @@ Clear finish line — not an endless improvement cycle.
 - UAT with each role (Budget Holder, Manager, GM, Finance, System Admin)  
 - Performance verification  
 - Security verification  
+
+**Formal validation evidence:** `docs/staging-e2e-acceptance.md` (not informal personal checklists). Browser smoke and role UAT feed that matrix; incomplete evidence blocks Go.
+
+**Critical spine (must pass on staging before release dossier):**
+
+| Area | Scope |
+|------|--------|
+| Auth session | Login / logout |
+| Administration | User management; administrator password reset; fiscal year management |
+| Budget path | Create / edit / submit |
+| Approval path | Manager approve/return; GM approve/return/reject |
+| Finance path | Claim / finalize / return (and release where applicable) |
+| Observability | Notifications; reports; CSV / SAP export paths |
+| Dev-only | Development Toolkit — verify dual/triple gate; must remain unavailable outside development |
 
 ### Milestone 4 — Production
 

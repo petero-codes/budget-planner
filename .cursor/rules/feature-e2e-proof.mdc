@@ -1,0 +1,31 @@
+---
+description: Require 12-point end-to-end proof before claiming any feature complete
+alwaysApply: true
+---
+
+# Feature completeness — end-to-end proof
+
+Never claim a feature “exists,” “works,” or “is complete” unless you can trace it end-to-end.
+
+For **each** claimed feature, provide all twelve points with file/path evidence. If any point is missing, the feature is **INCOMPLETE**.
+
+1. UI entry point (page path + button/control label)
+2. API endpoint (`METHOD` + path)
+3. Application service (file + method) — or explicitly “route-only / no application service”
+4. Domain rule (file + symbol) — or “none — orchestration / service invariants only”
+5. Repository used (interface / implementation)
+6. Database tables modified (or “read-only”)
+7. Audit events written (action strings) — or “none”
+8. Notifications generated (types) — or “none”
+9. Permission required (code) — or “authenticated only” / “public”
+10. Unit/integration test covering it (file + test name) — or **MISSING**
+11. Exact manual test steps
+12. Expected result
+
+## Rules
+
+- Do not invent missing layers. Say **MISSING** or **INCOMPLETE**.
+- Do not treat “code exists” as “complete” if tests, audits, or UI are absent where the product design requires them.
+- Do not add out-of-scope seed users (e.g. Western Region) unless the stakeholder explicitly requests it.
+- Prefer updating `docs/feature-e2e-proof.md` when correcting completeness claims.
+- Staging evidence still belongs in `docs/staging-e2e-acceptance.md`.

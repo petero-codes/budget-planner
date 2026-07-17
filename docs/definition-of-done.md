@@ -18,6 +18,23 @@ A change is complete only when all applicable items pass.
 - [ ] No TODOs, dead code, or unrelated file changes outside approved scope
 - [ ] No RBAC / workflow / audit regressions
 
+### Feature completeness proof (before claiming “works” / “complete”)
+
+Do **not** claim a feature exists or is complete unless all of **1–10** are evidenced. If any are missing → **INCOMPLETE**. Inventory: `docs/feature-e2e-proof.md`.
+
+1. UI entry point  
+2. API endpoint  
+3. Application service  
+4. Domain rule (or none)  
+5. Repository  
+6. DB tables modified / read-only  
+7. Audit events (or none)  
+8. Notifications (or none)  
+9. Permission  
+10. Automated test  
+11. Manual test steps  
+12. Expected result  
+
 ## Stabilization additions (Milestone 2)
 
 - [ ] No new features unless explicitly requested
