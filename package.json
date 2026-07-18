@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "db:seed": "tsx scripts/seed-sql.ts",
     "db:passwords": "tsx scripts/set-passwords.ts",
+    "e2e:spine": "tsx scripts/e2e-notification-spine.ts",
     "postinstall": "node scripts/patch-next-tsconfig-path.js"
   },
   "dependencies": {
