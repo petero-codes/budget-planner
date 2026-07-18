@@ -24,7 +24,10 @@
  * Usage:  npm run e2e:spine     (sets REPOSITORY_DRIVER=sql)
  */
 
-import { deleteTestLineage } from "./lib/test-database-cleaner";
+import {
+  deleteTestLineage,
+  withImmutabilityTriggersDisabled,
+} from "./lib/test-database-cleaner";
 
 process.env.REPOSITORY_DRIVER = process.env.REPOSITORY_DRIVER ?? "sql";
 process.env.NODE_ENV = process.env.NODE_ENV ?? "development";
@@ -129,6 +132,40 @@ async function main(): Promise<void> {
 
   const teardownLineage = (lineageId: string) =>
     deleteTestLineage(pool, sql, lineageId);
+
+  const immutabilityTriggers = [
+    "TR_AuditLogs_NoUpdateDelete",
+    "TR_ApprovalHistory_NoUpdateDelete",
+    "TR_WorkflowHistory_NoUpdateDelete",
+  ];
+  async function disabledTriggerCount(): Promise<number> {
+    const res = await pool.request().query(
+      `SELECT COUNT(*) AS Disabled FROM sys.triggers
+       WHERE is_disabled = 1 AND name IN (${immutabilityTriggers
+         .map((n) => `'${n}'`)
+         .join(", ")})`
+    );
+    return Number((res.recordset as AnyRec[])[0]?.Disabled ?? 0);
+  }
+
+  // -------- cleaner safety: triggers must be re-enabled even on failure ----
+  section("PRECHECK  TestDatabaseCleaner never leaks disabled triggers");
+  check("all immutability triggers enabled at start", (await disabledTriggerCount()) === 0);
+  let threw = false;
+  try {
+    await withImmutabilityTriggersDisabled(pool, async () => {
+      if ((await disabledTriggerCount()) === 0) {
+        check("triggers actually disabled inside the block", false);
+      } else {
+        check("triggers actually disabled inside the block", true);
+      }
+      throw new Error("intentional failure inside disabled block");
+    });
+  } catch {
+    threw = true;
+  }
+  check("work failure propagated (not swallowed)", threw);
+  check("triggers re-enabled after failure (finally ran)", (await disabledTriggerCount()) === 0);
 
   // -------- resolve actors + reference data --------
   const allUsers = await repos.users.getAll();

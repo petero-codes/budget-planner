@@ -37,8 +37,8 @@ Policy". Newest entries at the top.
 - Date: 2026-07-18
 - Author: Cursor AI
 - Subsystems: Development Toolkit / E2E tooling (Active). Startup Validation (Frozen): not touched.
-- Task / Reason: Isolate DISABLE TRIGGER into a single auditable module; verify FinanceQueueClaims across claim/release/finalize; correct service-level wording (not "whole system proven").
-- Files: `scripts/lib/test-database-cleaner.ts` (new — sole authorized trigger-disable site), `scripts/e2e-notification-spine.ts`, `scripts/seed-sql.ts` (delegates wipe to cleaner), `docs/staging-e2e-acceptance.md`, `docs/CHANGE_HISTORY.md`
+- Task / Reason: Isolate DISABLE TRIGGER into a single auditable module; verify FinanceQueueClaims across claim/release/finalize; prove the cleaner re-enables triggers even on failure; correct service-level wording (not "whole system proven").
+- Files: `scripts/lib/test-database-cleaner.ts` (new — sole authorized trigger-disable site), `scripts/e2e-notification-spine.ts` (adds FinanceQueueClaims checks + cleaner leak-proof precheck), `scripts/seed-sql.ts` (delegates wipe to cleaner), `docs/staging-e2e-acceptance.md` (explicit service-layer scope; count no longer hardcoded), `docs/CHANGE_HISTORY.md`
 - Business rules changed: No
 - APIs changed: None
 - DB impact: None

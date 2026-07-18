@@ -73,9 +73,9 @@ immutability triggers).
 | Return-for-revision | Owner gets `Outcome`, Manager `Approval` resolved, budget editable again | Pass |
 | Finance B cannot release/finalize Finance A's claim | **Skipped** — only 1 `FinanceAdministrator` seeded; add peer Finance user later | N/A |
 
-**Latest run:** 2026-07-18 — **57 automated service-level checks passed against the local SQL environment** (0 failures). Teardown via `TestDatabaseCleaner`; re-run confirmed idempotent. No defects uncovered. Observation: informational `Finance` (Low) "is reviewing your budget" notifications to the owner are not auto-resolved (by design — only actionable task notifications auto-resolve).
+**Latest run:** 2026-07-18 — **all automated service-level checks passed against the local SQL environment** (0 failures; exact count printed by the harness summary — do not transcribe it here to avoid drift). Includes a precheck proving `TestDatabaseCleaner` re-enables immutability triggers even when the wrapped work throws. Teardown via `TestDatabaseCleaner`; re-run confirmed idempotent. No defects uncovered. Observation: informational `Finance` (Low) "is reviewing your budget" notifications to the owner are not auto-resolved (by design — only actionable task notifications auto-resolve).
 
-> The table above is the **local service-layer** gate. Browser, cookies, routing, middleware, API serialization, and UI rendering still belong to **staging** — this pass does not prove the full application.
+> **Scope of this gate.** Verified through the application **service layer** against a real SQL Server database. Browser UI, middleware, HTTP routing, cookies, API serialization, and client-side behavior are **intentionally out of scope** here and are covered by the staging / browser matrices below. This pass does not prove the full application end-to-end.
 
 ---
 
