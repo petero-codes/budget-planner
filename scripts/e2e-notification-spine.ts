@@ -30,7 +30,11 @@ import {
 } from "./lib/test-database-cleaner";
 
 process.env.REPOSITORY_DRIVER = process.env.REPOSITORY_DRIVER ?? "sql";
-process.env.NODE_ENV = process.env.NODE_ENV ?? "development";
+// NODE_ENV is typed read-only in the Next.js env augmentation; set via cast
+// only when unset so `resolveRepositoryDriver` treats this as a dev run.
+if (!process.env.NODE_ENV) {
+  (process.env as Record<string, string>).NODE_ENV = "development";
+}
 
 type AnyRec = Record<string, unknown>;
 
