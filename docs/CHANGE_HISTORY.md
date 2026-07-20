@@ -10,6 +10,25 @@ lives in `CHANGELOG.md`; this log records *what/why/verified* at a glance.
 Governing policy: `docs/ENGINEERING_GOVERNANCE.md` → "Engineering Change Log
 Policy". Newest entries at the top.
 
+## Change #020 — Browser Safety multi-layer enforcement (AI-032)
+
+- Date: 2026-07-20
+- Author: agent
+- Subsystems: Development Toolkit (Active); Startup Validation (Frozen — untouched)
+- Task / Reason: Enforce hard client/server architectural boundaries after `/admin` SQL driver leak via client imports.
+- Files: `src/lib/shared/**`, `src/lib/client/**`, `src/lib/server/**`, `scripts/architecture-guard/**`, `scripts/browser-safety-check.ts`, `scripts/stamp-server-only.ts`, `.dependency-cruiser.cjs`, `.eslintrc.json`, `.github/workflows/architecture-guard.yml`, `vitest.config.ts`, `docs/ARCHITECTURAL_INVARIANTS.md` (AI-032, INV-28…31), `package.json`
+- Business rules changed: None
+- APIs changed: None
+- DB impact: None
+- Tests: `tests/unit/architecture-guard.test.ts` (4); vitest aliases for `server-only`/`client-only`
+- Docs updated: `ARCHITECTURAL_INVARIANTS.md` — **AI-032 Browser Safety** architectural contract
+- Knowledge: No permanent knowledge introduced (structural enforcement only)
+- Verification: Code YES · Tests YES (150/150) · Runtime pending staging E2E · Docs YES
+- Remaining risks: (1) Architecture Guard CLI is authoritative over ESLint for client boundary scans; (2) `src/lib/*` shims → migrate to `lib/shared`/`lib/client`; (3) browser pass `/login` → `/admin` → `/budgets` → `/finance` → `/reports` in staging E2E
+- Rollback: revert commit — removes guards; no schema/data impact
+
+---
+
 ## Entry template
 
 ```
