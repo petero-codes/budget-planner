@@ -11,7 +11,7 @@ function pendingFinancePlan(overrides: Partial<BudgetPlan> = {}): BudgetPlan {
     ownerId: IDS.patrick,
     costCenterId: IDS.ccRelMgmt,
     fiscalYearId: IDS.fy2027,
-    budgetType: "Primary",
+    budgetCategory: "RECURRENT",
     fromPeriod: "2026-07-01",
     toPeriod: "2027-06-30",
     description: "Finance audit test",
@@ -82,5 +82,57 @@ describe("FinanceService audit logging", () => {
     expect(mockStore.audits.some((a) => a.action === "FinanceReturned")).toBe(
       true
     );
+  });
+
+  it("turns the shared Finance queue into a personal task and records resolution", async () => {
+    const finance = (await repos.users.getById(IDS.finance))!;
+    mockStore.budgets.push(pendingFinancePlan());
+    await repos.notifications.create({
+      id: "finance-queue-task",
+      userId: finance.id,
+      type: "FinanceQueue",
+      title: "Budget awaiting Finance review",
+      message: "Approved budget is ready for Finance.",
+      priority: "High",
+      category: "Finance",
+      actionLabel: "Review Finance Queue",
+      relatedPlanId: "plan-finance-audit",
+      entityType: "Budget",
+      entityId: "plan-finance-audit",
+      targetUrl: "/finance?planId=plan-finance-audit",
+      isRead: false,
+      createdAt: "2026-01-15T10:00:00.000Z",
+    });
+
+    await financeService.claim("plan-finance-audit", finance, "corr-claim");
+
+    const queueTask = mockStore.notifications.find(
+      (notification) => notification.id === "finance-queue-task"
+    );
+    expect(queueTask?.resolvedAt).toBeTruthy();
+    expect(queueTask?.resolvedBy).toBe(finance.id);
+
+    const personalTask = mockStore.notifications.find(
+      (notification) =>
+        notification.type === "FinanceClaim" &&
+        notification.userId === finance.id &&
+        !notification.resolvedAt
+    );
+    expect(personalTask).toMatchObject({
+      priority: "High",
+      category: "Finance",
+      actionLabel: "Review Budget",
+      entityType: "Budget",
+      entityId: "plan-finance-audit",
+      targetUrl: "/budgets/plan-finance-audit",
+    });
+
+    await financeService.finalize(
+      "plan-finance-audit",
+      finance,
+      "corr-finalize"
+    );
+    expect(personalTask?.resolvedAt).toBeTruthy();
+    expect(personalTask?.resolvedBy).toBe(finance.id);
   });
 });

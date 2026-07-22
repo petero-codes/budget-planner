@@ -128,6 +128,8 @@ describe("Development Toolkit", () => {
     const fyService = new FiscalYearService(
       bundle.fiscalYears,
       bundle.audits,
+      bundle.users,
+      bundle.notifications,
       authz,
       bundle.uow
     );
@@ -144,7 +146,7 @@ describe("Development Toolkit", () => {
       ownerId: IDS.peter,
       costCenterId: IDS.ccNet,
       fiscalYearId: IDS.fy2027,
-      budgetType: "Primary",
+      budgetCategory: "RECURRENT",
       fromPeriod: "2027-01-01",
       toPeriod: "2027-12-31",
       description: "Test",
@@ -189,6 +191,8 @@ describe("Development Toolkit", () => {
     const fyService = new FiscalYearService(
       bundle.fiscalYears,
       bundle.audits,
+      bundle.users,
+      bundle.notifications,
       authz,
       bundle.uow
     );
@@ -225,6 +229,8 @@ describe("Development Toolkit", () => {
     const fyService = new FiscalYearService(
       bundle.fiscalYears,
       bundle.audits,
+      bundle.users,
+      bundle.notifications,
       authz,
       bundle.uow
     );
@@ -239,7 +245,10 @@ describe("Development Toolkit", () => {
       userId: IDS.peter,
       type: "Test",
       title: "Hello",
-      body: "World",
+      message: "World",
+      priority: "Low",
+      category: "Administration",
+      actionLabel: "View",
       relatedPlanId: null,
       isRead: false,
       createdAt: new Date().toISOString(),
@@ -274,6 +283,8 @@ describe("Development Toolkit", () => {
     const fyService = new FiscalYearService(
       bundle.fiscalYears,
       bundle.audits,
+      bundle.users,
+      bundle.notifications,
       authz,
       bundle.uow
     );
@@ -300,6 +311,8 @@ describe("Development Toolkit", () => {
     const fyService = new FiscalYearService(
       bundle.fiscalYears,
       bundle.audits,
+      bundle.users,
+      bundle.notifications,
       authz,
       bundle.uow
     );
@@ -325,6 +338,8 @@ describe("Development Toolkit", () => {
     const fyService = new FiscalYearService(
       bundle.fiscalYears,
       bundle.audits,
+      bundle.users,
+      bundle.notifications,
       authz,
       bundle.uow
     );
@@ -364,6 +379,8 @@ describe("Development Toolkit", () => {
     const fyService = new FiscalYearService(
       bundle.fiscalYears,
       bundle.audits,
+      bundle.users,
+      bundle.notifications,
       authz,
       bundle.uow
     );
@@ -380,7 +397,7 @@ describe("Development Toolkit", () => {
         ownerId: IDS.peter,
         costCenterId: IDS.ccNet,
         fiscalYearId: IDS.fy2027,
-        budgetType: "Primary",
+        budgetCategory: "RECURRENT",
         fromPeriod: "2027-01-01",
         toPeriod: "2027-12-31",
         description: "Sim target",
@@ -412,6 +429,8 @@ describe("Development Toolkit", () => {
     const fyService = new FiscalYearService(
       bundle.fiscalYears,
       bundle.audits,
+      bundle.users,
+      bundle.notifications,
       authz,
       bundle.uow
     );
@@ -453,6 +472,8 @@ describe("Development Toolkit", () => {
     const fyService = new FiscalYearService(
       bundle.fiscalYears,
       bundle.audits,
+      bundle.users,
+      bundle.notifications,
       authz,
       bundle.uow
     );
@@ -482,6 +503,8 @@ describe("Development Toolkit", () => {
     const fyService = new FiscalYearService(
       bundle.fiscalYears,
       bundle.audits,
+      bundle.users,
+      bundle.notifications,
       authz,
       bundle.uow
     );
@@ -498,7 +521,7 @@ describe("Development Toolkit", () => {
       id: lineageId,
       costCenterId: IDS.ccNet,
       fiscalYearId: IDS.fy2027,
-      originalBudgetType: "Primary",
+      originalBudgetCategory: "RECURRENT",
       budgetNumber: "BUD-2027-ICT-0001",
       currentVersionId: sourcePlanId,
       latestFinalizedVersionId: sourcePlanId,
@@ -511,7 +534,7 @@ describe("Development Toolkit", () => {
         ownerId: IDS.peter,
         costCenterId: IDS.ccNet,
         fiscalYearId: IDS.fy2027,
-        budgetType: "Primary",
+        budgetCategory: "RECURRENT",
         fromPeriod: "2026-07-01",
         toPeriod: "2027-06-30",
         description: "Finalized source",

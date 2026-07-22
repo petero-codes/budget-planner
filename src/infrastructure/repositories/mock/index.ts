@@ -1,3 +1,17 @@
+/**
+ * Mock repository implementations + MockUnitOfWork
+ *
+ * Responsibility
+ * --------------
+ * In-memory stand-ins for unit tests and client bundles. MockUnitOfWork does
+ * NOT roll back on failure (see WORKFLOWS Baseline T).
+ *
+ * Does NOT:
+ * - open SQL connections
+ */
+
+import "server-only";
+
 import type {
   IApprovalHistoryRepository,
   IApprovalRouteRepository,
@@ -24,6 +38,7 @@ import type {
   Notification,
   User,
 } from "@/domain/entities";
+import { isActionableNotification } from "@/domain/entities";
 import {
   IN_PLAY,
   MockBudgetAttachmentCategoryRepository,
@@ -280,13 +295,13 @@ export class MockBudgetPlanRepository implements IBudgetPlanRepository {
   async findActiveDuplicate(
     costCenterId: string,
     fiscalYearId: string,
-    budgetType: string
+    budgetCategory: string
   ) {
     const plan = mockStore.budgets.find(
       (b) =>
         b.costCenterId === costCenterId &&
         b.fiscalYearId === fiscalYearId &&
-        b.budgetType === budgetType &&
+        b.budgetCategory === budgetCategory &&
         IN_PLAY.has(b.status)
     );
     return plan ? structuredClone(plan) : null;
@@ -340,7 +355,7 @@ export class MockBudgetPlanRepository implements IBudgetPlanRepository {
       mockStore.budgets.filter(
         (b) =>
           b.versionLabel?.toLowerCase().includes(q) ||
-          b.budgetType.toLowerCase().includes(q) ||
+          b.budgetCategory.toLowerCase().includes(q) ||
           b.status.toLowerCase().includes(q) ||
           b.sapVersion?.toLowerCase().includes(q) ||
           b.id.toLowerCase().includes(q)
@@ -416,8 +431,31 @@ export class MockAuditLogRepository implements IAuditLogRepository {
 
 export class MockNotificationRepository implements INotificationRepository {
   async create(notification: Notification) {
+    // Duplicate-task guard (K-009): never two ACTIVE notifications for the
+    // same task — same recipient, type, and business key (plan or entity).
+    // Informational types (Outcome, Finance, …) may repeat.
+    if (isActionableNotification(notification.type)) {
+      const key =
+        notification.relatedPlanId ?? notification.entityId ?? null;
+      const duplicate = mockStore.notifications.some(
+        (n) =>
+          n.userId === notification.userId &&
+          n.type === notification.type &&
+          !n.resolvedAt &&
+          !n.isCleared &&
+          (n.relatedPlanId ?? n.entityId ?? null) === key
+      );
+      if (duplicate) return;
+    }
     mockStore.notifications.push(
       structuredClone({
+        entityType: null,
+        entityId: null,
+        targetUrl: null,
+        readAt: null,
+        resolvedAt: null,
+        resolvedBy: null,
+        expiresAt: null,
         isCleared: false,
         clearedAt: null,
         clearedReason: null,
@@ -425,39 +463,82 @@ export class MockNotificationRepository implements INotificationRepository {
       })
     );
   }
-  async listByUser(userId: string) {
+  async listByUser(userId: string, options?: { includeResolved?: boolean }) {
+    const includeResolved = options?.includeResolved ?? false;
     return structuredClone(
       mockStore.notifications
-        .filter((n) => n.userId === userId && !n.isCleared)
+        .filter((n) => {
+          if (n.userId !== userId || n.isCleared) return false;
+          return includeResolved ? Boolean(n.resolvedAt) : !n.resolvedAt;
+        })
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     );
   }
-  async markRead(id: string) {
-    const n = mockStore.notifications.find((x) => x.id === id);
-    if (n) n.isRead = true;
-  }
-  async dismiss(id: string, userId: string) {
+  async markRead(id: string, userId: string) {
     const n = mockStore.notifications.find(
       (x) => x.id === id && x.userId === userId
     );
-    if (n) {
-      n.isCleared = true;
-      n.clearedAt = new Date().toISOString();
-      n.clearedReason = n.clearedReason ?? "Dismissed";
+    if (n && !n.readAt) {
+      n.isRead = true;
+      n.readAt = new Date().toISOString();
     }
   }
-  async dismissForPlan(
+  async markAllRead(userId: string) {
+    const now = new Date().toISOString();
+    for (const n of mockStore.notifications) {
+      if (n.userId !== userId || n.isCleared || n.resolvedAt) continue;
+      if (n.readAt) continue;
+      n.isRead = true;
+      n.readAt = now;
+    }
+  }
+  async resolveOwn(id: string, userId: string, resolvedBy?: string | null) {
+    const n = mockStore.notifications.find(
+      (x) => x.id === id && x.userId === userId
+    );
+    if (n && !n.resolvedAt) {
+      n.resolvedAt = new Date().toISOString();
+      n.resolvedBy = resolvedBy ?? userId;
+    }
+  }
+  async archiveResolved(id: string, userId: string) {
+    const n = mockStore.notifications.find(
+      (x) => x.id === id && x.userId === userId
+    );
+    // Never archive still-pending work.
+    if (n && n.resolvedAt) {
+      n.isCleared = true;
+      n.clearedAt = new Date().toISOString();
+      n.clearedReason = n.clearedReason ?? "Archived";
+    }
+  }
+  async resolveForPlan(
     planId: string,
-    options?: { userId?: string; types?: string[] }
+    options?: { userId?: string; types?: string[]; resolvedBy?: string | null }
   ) {
     const now = new Date().toISOString();
     for (const n of mockStore.notifications) {
       if (n.relatedPlanId !== planId) continue;
       if (options?.userId && n.userId !== options.userId) continue;
       if (options?.types && !options.types.includes(n.type)) continue;
-      n.isCleared = true;
-      n.clearedAt = now;
-      n.clearedReason = n.clearedReason ?? "Plan cleared";
+      if (n.resolvedAt) continue;
+      n.resolvedAt = now;
+      n.resolvedBy = options?.resolvedBy ?? null;
+    }
+  }
+  async resolveForEntity(
+    entityType: string,
+    entityId: string,
+    options?: { userId?: string; types?: string[]; resolvedBy?: string | null }
+  ) {
+    const now = new Date().toISOString();
+    for (const n of mockStore.notifications) {
+      if (n.entityType !== entityType || n.entityId !== entityId) continue;
+      if (options?.userId && n.userId !== options.userId) continue;
+      if (options?.types && !options.types.includes(n.type)) continue;
+      if (n.resolvedAt) continue;
+      n.resolvedAt = now;
+      n.resolvedBy = options?.resolvedBy ?? null;
     }
   }
   async softClear(options: {

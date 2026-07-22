@@ -1,3 +1,19 @@
+/**
+ * SQL repository implementations + SqlUnitOfWork
+ *
+ * Responsibility
+ * --------------
+ * mssql-backed persistence. SqlUnitOfWork uses AsyncLocalStorage so all writes
+ * inside runInTransaction (including audit + notifications) share one TX.
+ *
+ * Does NOT:
+ * - own business rules (application/domain do)
+ *
+ * Related: docs/DATABASE.md, WORKFLOWS Baseline T
+ */
+
+import "server-only";
+
 import type {
   ApprovalHistoryEntry,
   ApprovalRouteStep,
@@ -11,6 +27,7 @@ import type {
   Position,
   User,
 } from "@/domain/entities";
+import { isActionableNotification } from "@/domain/entities";
 import type {
   IApprovalHistoryRepository,
   IApprovalRouteRepository,
@@ -683,17 +700,17 @@ export class SqlBudgetPlanRepository implements IBudgetPlanRepository {
   async findActiveDuplicate(
     costCenterId: string,
     fiscalYearId: string,
-    budgetType: string
+    budgetCategory: string
   ) {
     const r = await req();
     r.input("costCenterId", sql.UniqueIdentifier, costCenterId);
     r.input("fiscalYearId", sql.UniqueIdentifier, fiscalYearId);
-    r.input("budgetType", sql.NVarChar(50), budgetType);
+    r.input("budgetCategory", sql.NVarChar(50), budgetCategory);
     const result = await r.query(`
       SELECT TOP 1 * FROM dbo.BudgetPlans
       WHERE CostCenterId = @costCenterId
         AND FiscalYearId = @fiscalYearId
-        AND BudgetType = @budgetType
+        AND BudgetType = @budgetCategory
         AND Status NOT IN (N'Rejected', N'Finalized', N'Approved')
         AND IsArchived = 0
     `);
@@ -800,7 +817,7 @@ export class SqlBudgetPlanRepository implements IBudgetPlanRepository {
     r.input("ownerId", sql.UniqueIdentifier, plan.ownerId);
     r.input("costCenterId", sql.UniqueIdentifier, plan.costCenterId);
     r.input("fiscalYearId", sql.UniqueIdentifier, plan.fiscalYearId);
-    r.input("budgetType", sql.NVarChar(50), plan.budgetType);
+    r.input("budgetCategory", sql.NVarChar(50), plan.budgetCategory);
     r.input("fromPeriod", sql.Date, plan.fromPeriod);
     r.input("toPeriod", sql.Date, plan.toPeriod);
     r.input("description", sql.NVarChar(1000), plan.description);
@@ -837,7 +854,7 @@ export class SqlBudgetPlanRepository implements IBudgetPlanRepository {
           FinanceClaimedAt, FinanceClaimedBy,
           IsDemo, CreatedByToolkit, DemoBatchId
         ) VALUES (
-          @id, @ownerId, @costCenterId, @fiscalYearId, @budgetType,
+          @id, @ownerId, @costCenterId, @fiscalYearId, @budgetCategory,
           @fromPeriod, @toPeriod, @description, @status, @currentApproverId, @submittedAt,
           @sapVersion, @version, @createdAt, @updatedAt,
           @lineageId, @parentId, @lineageRevision, @versionLabel, @amendmentReason,
@@ -855,7 +872,7 @@ export class SqlBudgetPlanRepository implements IBudgetPlanRepository {
           OwnerId = @ownerId,
           CostCenterId = @costCenterId,
           FiscalYearId = @fiscalYearId,
-          BudgetType = @budgetType,
+          BudgetType = @budgetCategory,
           FromPeriod = @fromPeriod,
           ToPeriod = @toPeriod,
           Description = @description,
@@ -1038,84 +1055,175 @@ export class SqlNotificationRepository implements INotificationRepository {
     r.input("userId", sql.UniqueIdentifier, notification.userId);
     r.input("type", sql.NVarChar(50), notification.type);
     r.input("title", sql.NVarChar(200), notification.title);
-    r.input("body", sql.NVarChar(1000), notification.body);
+    r.input("body", sql.NVarChar(1000), notification.message);
+    r.input("priority", sql.NVarChar(20), notification.priority);
+    r.input("category", sql.NVarChar(30), notification.category);
+    r.input("actionLabel", sql.NVarChar(100), notification.actionLabel);
     r.input("relatedPlanId", sql.UniqueIdentifier, notification.relatedPlanId);
+    r.input("entityType", sql.NVarChar(30), notification.entityType ?? null);
+    r.input("entityId", sql.NVarChar(100), notification.entityId ?? null);
+    r.input("targetUrl", sql.NVarChar(400), notification.targetUrl ?? null);
     r.input("isRead", sql.Bit, notification.isRead);
+    r.input("readAt", sql.DateTime2, notification.readAt ?? null);
+    r.input("resolvedAt", sql.DateTime2, notification.resolvedAt ?? null);
+    r.input("resolvedBy", sql.UniqueIdentifier, notification.resolvedBy ?? null);
+    r.input("expiresAt", sql.DateTime2, notification.expiresAt ?? null);
     r.input("createdAt", sql.DateTime2, notification.createdAt);
     r.input("isCleared", sql.Bit, notification.isCleared ?? false);
     r.input("clearedAt", sql.DateTime2, notification.clearedAt ?? null);
     r.input("clearedReason", sql.NVarChar(500), notification.clearedReason ?? null);
+    // Duplicate-task guard (K-009): a single atomic statement so no second
+    // ACTIVE task row can appear for the same recipient + type + business key
+    // (plan or entity). Informational types may repeat.
+    r.input(
+      "dedupe",
+      sql.Bit,
+      isActionableNotification(notification.type) ? 1 : 0
+    );
     await r.query(`
       INSERT INTO dbo.Notifications (
-        NotificationId, UserId, Type, Title, Body,
-        RelatedBudgetPlanId, IsRead, CreatedAt,
+        NotificationId, UserId, Type, Title, Body, Priority, Category, ActionLabel,
+        RelatedBudgetPlanId, EntityType, EntityId, TargetUrl,
+        IsRead, ReadAt, ResolvedAt, ResolvedBy, ExpiresAt, CreatedAt,
         IsCleared, ClearedAt, ClearedReason
-      ) VALUES (
-        @id, @userId, @type, @title, @body,
-        @relatedPlanId, @isRead, @createdAt,
-        @isCleared, @clearedAt, @clearedReason
       )
+      SELECT
+        @id, @userId, @type, @title, @body, @priority, @category, @actionLabel,
+        @relatedPlanId, @entityType, @entityId, @targetUrl,
+        @isRead, @readAt, @resolvedAt, @resolvedBy, @expiresAt, @createdAt,
+        @isCleared, @clearedAt, @clearedReason
+      WHERE @dedupe = 0
+        OR NOT EXISTS (
+          SELECT 1 FROM dbo.Notifications WITH (UPDLOCK, HOLDLOCK)
+          WHERE UserId = @userId
+            AND Type = @type
+            AND ResolvedAt IS NULL
+            AND ISNULL(IsCleared, 0) = 0
+            AND COALESCE(CAST(RelatedBudgetPlanId AS NVARCHAR(100)), EntityId, N'')
+              = COALESCE(CAST(@relatedPlanId AS NVARCHAR(100)), @entityId, N'')
+        )
     `);
   }
 
-  async listByUser(userId: string) {
+  async listByUser(userId: string, options?: { includeResolved?: boolean }) {
     const r = await req();
     r.input("userId", sql.UniqueIdentifier, userId);
+    const resolvedClause = options?.includeResolved
+      ? "AND ResolvedAt IS NOT NULL"
+      : "AND ResolvedAt IS NULL";
     const result = await r.query(`
       SELECT * FROM dbo.Notifications
       WHERE UserId = @userId
         AND ISNULL(IsCleared, 0) = 0
+        ${resolvedClause}
       ORDER BY CreatedAt DESC
     `);
     return (result.recordset as Record<string, unknown>[]).map(mapNotification);
   }
 
-  async markRead(id: string) {
+  async markRead(id: string, userId: string) {
     const r = await req();
     r.input("id", sql.UniqueIdentifier, id);
-    await r.query(`UPDATE dbo.Notifications SET IsRead = 1 WHERE NotificationId = @id`);
+    r.input("userId", sql.UniqueIdentifier, userId);
+    r.input("readAt", sql.DateTime2, new Date().toISOString());
+    await r.query(`
+      UPDATE dbo.Notifications
+      SET IsRead = 1, ReadAt = COALESCE(ReadAt, @readAt)
+      WHERE NotificationId = @id AND UserId = @userId
+    `);
   }
 
-  async dismiss(id: string, userId: string) {
+  async markAllRead(userId: string) {
+    const r = await req();
+    r.input("userId", sql.UniqueIdentifier, userId);
+    r.input("readAt", sql.DateTime2, new Date().toISOString());
+    await r.query(`
+      UPDATE dbo.Notifications
+      SET IsRead = 1, ReadAt = COALESCE(ReadAt, @readAt)
+      WHERE UserId = @userId
+        AND ISNULL(IsCleared, 0) = 0
+        AND ResolvedAt IS NULL
+        AND ReadAt IS NULL
+    `);
+  }
+
+  async resolveOwn(id: string, userId: string, resolvedBy?: string | null) {
+    const r = await req();
+    r.input("id", sql.UniqueIdentifier, id);
+    r.input("userId", sql.UniqueIdentifier, userId);
+    r.input("resolvedAt", sql.DateTime2, new Date().toISOString());
+    r.input("resolvedBy", sql.UniqueIdentifier, resolvedBy ?? userId);
+    await r.query(`
+      UPDATE dbo.Notifications
+      SET ResolvedAt = COALESCE(ResolvedAt, @resolvedAt),
+          ResolvedBy = COALESCE(ResolvedBy, @resolvedBy)
+      WHERE NotificationId = @id AND UserId = @userId
+        AND ISNULL(IsCleared, 0) = 0
+    `);
+  }
+
+  async archiveResolved(id: string, userId: string) {
     const r = await req();
     r.input("id", sql.UniqueIdentifier, id);
     r.input("userId", sql.UniqueIdentifier, userId);
     r.input("clearedAt", sql.DateTime2, new Date().toISOString());
     await r.query(`
       UPDATE dbo.Notifications
-      SET IsCleared = 1, ClearedAt = @clearedAt, ClearedReason = N'Dismissed'
+      SET IsCleared = 1, ClearedAt = @clearedAt, ClearedReason = N'Archived'
       WHERE NotificationId = @id AND UserId = @userId
+        AND ResolvedAt IS NOT NULL
     `);
   }
 
-  async dismissForPlan(
+  async resolveForPlan(
     planId: string,
-    options?: { userId?: string; types?: string[] }
+    options?: { userId?: string; types?: string[]; resolvedBy?: string | null }
   ) {
     const r = await req();
     r.input("planId", sql.UniqueIdentifier, planId);
     r.input("userId", sql.UniqueIdentifier, options?.userId ?? null);
-    r.input("clearedAt", sql.DateTime2, new Date().toISOString());
-    if (options?.types?.length) {
-      const placeholders = options.types.map((_, i) => `@t${i}`).join(", ");
-      options.types.forEach((t, i) => r.input(`t${i}`, sql.NVarChar(50), t));
-      await r.query(`
-        UPDATE dbo.Notifications
-        SET IsCleared = 1, ClearedAt = @clearedAt, ClearedReason = N'Plan cleared'
-        WHERE RelatedBudgetPlanId = @planId
-          AND (@userId IS NULL OR UserId = @userId)
-          AND Type IN (${placeholders})
-          AND ISNULL(IsCleared, 0) = 0
-      `);
-    } else {
-      await r.query(`
-        UPDATE dbo.Notifications
-        SET IsCleared = 1, ClearedAt = @clearedAt, ClearedReason = N'Plan cleared'
-        WHERE RelatedBudgetPlanId = @planId
-          AND (@userId IS NULL OR UserId = @userId)
-          AND ISNULL(IsCleared, 0) = 0
-      `);
-    }
+    r.input("resolvedAt", sql.DateTime2, new Date().toISOString());
+    r.input("resolvedBy", sql.UniqueIdentifier, options?.resolvedBy ?? null);
+    const typeClause = options?.types?.length
+      ? `AND Type IN (${options.types.map((_, i) => `@t${i}`).join(", ")})`
+      : "";
+    options?.types?.forEach((t, i) => r.input(`t${i}`, sql.NVarChar(50), t));
+    await r.query(`
+      UPDATE dbo.Notifications
+      SET ResolvedAt = @resolvedAt, ResolvedBy = @resolvedBy
+      WHERE RelatedBudgetPlanId = @planId
+        AND (@userId IS NULL OR UserId = @userId)
+        ${typeClause}
+        AND ResolvedAt IS NULL
+        AND ISNULL(IsCleared, 0) = 0
+    `);
+  }
+
+  async resolveForEntity(
+    entityType: string,
+    entityId: string,
+    options?: { userId?: string; types?: string[]; resolvedBy?: string | null }
+  ) {
+    const r = await req();
+    r.input("entityType", sql.NVarChar(30), entityType);
+    r.input("entityId", sql.NVarChar(100), entityId);
+    r.input("userId", sql.UniqueIdentifier, options?.userId ?? null);
+    r.input("resolvedAt", sql.DateTime2, new Date().toISOString());
+    r.input("resolvedBy", sql.UniqueIdentifier, options?.resolvedBy ?? null);
+    const typeClause = options?.types?.length
+      ? `AND Type IN (${options.types.map((_, i) => `@t${i}`).join(", ")})`
+      : "";
+    options?.types?.forEach((t, i) => r.input(`t${i}`, sql.NVarChar(50), t));
+    await r.query(`
+      UPDATE dbo.Notifications
+      SET ResolvedAt = @resolvedAt, ResolvedBy = @resolvedBy
+      WHERE EntityType = @entityType
+        AND EntityId = @entityId
+        AND (@userId IS NULL OR UserId = @userId)
+        ${typeClause}
+        AND ResolvedAt IS NULL
+        AND ISNULL(IsCleared, 0) = 0
+    `);
   }
 
   async softClear(options: {

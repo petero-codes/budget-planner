@@ -10,6 +10,19 @@ import { StatusChip } from "@/components/shared/status-chip";
 import { Button } from "@/components/ui/button";
 import { GlassSelect } from "@/components/ui/glass-select";
 import { apiGet } from "@/lib/client-api";
+import {
+  BUDGET_CATEGORY_COLUMN_LABEL,
+  BUDGET_CATEGORY_DISTRIBUTION_TITLE,
+  budgetCategoryDistribution,
+  budgetCategoryLabel,
+  budgetCategoryFilterOptions,
+  emptyBudgetCategorySummary,
+  addToBudgetCategorySummary,
+  addToLegacyBudgetCategorySummary,
+  emptyLegacyBudgetCategorySummary,
+  legacyBudgetCategoryDistribution,
+  LEGACY_BUDGET_CATEGORY_DISTRIBUTION_HEADING,
+} from "@/domain/constants/budget-types";
 import type {
   BudgetPlan,
   CostCenter,
@@ -22,6 +35,7 @@ import { formatCurrency } from "@/lib/utils";
 
 type ReportView =
   | "detail"
+  | "budgetCategory"
   | "department"
   | "costCenter"
   | "gl"
@@ -29,6 +43,7 @@ type ReportView =
 
 const VIEW_OPTIONS: { value: ReportView; label: string }[] = [
   { value: "detail", label: "Budget detail" },
+  { value: "budgetCategory", label: "Budget by category" },
   { value: "department", label: "Budget by department" },
   { value: "costCenter", label: "Budget by cost center" },
   { value: "gl", label: "Budget by GL" },
@@ -67,6 +82,7 @@ export default function ReportsPage() {
   const [status, setStatus] = useState("all");
   const [ccFilter, setCcFilter] = useState("all");
   const [fyFilter, setFyFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -102,9 +118,10 @@ export default function ReportsPage() {
       if (status !== "all" && p.status !== status) return false;
       if (ccFilter !== "all" && p.costCenterId !== ccFilter) return false;
       if (fyFilter !== "all" && p.fiscalYearId !== fyFilter) return false;
+      if (typeFilter !== "all" && p.budgetCategory !== typeFilter) return false;
       return true;
     });
-  }, [plans, status, ccFilter, fyFilter]);
+  }, [plans, status, ccFilter, fyFilter, typeFilter]);
 
   const yearLabel = (id: string) =>
     years.find((y) => y.id === id)?.yearLabel ?? id;
@@ -121,13 +138,32 @@ export default function ReportsPage() {
     return Array.from(map.entries()).sort((a, b) => b[0] - a[0]);
   }, [filtered, years]);
 
+  const totalsByType = useMemo(() => {
+    const summary = emptyBudgetCategorySummary();
+    const legacySummary = emptyLegacyBudgetCategorySummary();
+    for (const p of filtered) {
+      const amt = p.lines.reduce((s, l) => s + l.amount, 0);
+      addToBudgetCategorySummary(summary, p.budgetCategory, amt);
+      addToLegacyBudgetCategorySummary(legacySummary, p.budgetCategory, amt);
+    }
+    return {
+      catalog: budgetCategoryDistribution(summary),
+      legacy: legacyBudgetCategoryDistribution(legacySummary),
+    };
+  }, [filtered]);
+
   const deptName = (ccId: string) => {
     const cc = centers.find((c) => c.id === ccId);
     return departments.find((d) => d.id === cc?.departmentId)?.name ?? "Unknown";
   };
 
   const grouped = useMemo(() => {
-    if (view !== "department" && view !== "costCenter" && view !== "gl") {
+    if (
+      view !== "budgetCategory" &&
+      view !== "department" &&
+      view !== "costCenter" &&
+      view !== "gl"
+    ) {
       return [];
     }
     const map = new Map<
@@ -153,6 +189,9 @@ export default function ReportsPage() {
             isApproved
           );
         }
+      } else if (view === "budgetCategory") {
+        const amt = p.lines.reduce((s, l) => s + l.amount, 0);
+        add(budgetCategoryLabel(p.budgetCategory), amt, isApproved);
       } else {
         const amt = p.lines.reduce((s, l) => s + l.amount, 0);
         const key =
@@ -190,14 +229,21 @@ export default function ReportsPage() {
   }, [filtered, view]);
 
   function exportExcelCsv() {
-    if (view === "department" || view === "costCenter" || view === "gl") {
+    if (
+      view === "budgetCategory" ||
+      view === "department" ||
+      view === "costCenter" ||
+      view === "gl"
+    ) {
       downloadCsv(`budget-by-${view}.csv`, [
         [
-          view === "department"
-            ? "Department"
-            : view === "costCenter"
-              ? "Cost Center"
-              : "GL Account",
+          view === "budgetCategory"
+            ? BUDGET_CATEGORY_COLUMN_LABEL
+            : view === "department"
+              ? "Department"
+              : view === "costCenter"
+                ? "Cost Center"
+                : "GL Account",
           view === "gl" ? "Lines" : "Budgets",
           "Requested",
           "Approved",
@@ -225,12 +271,19 @@ export default function ReportsPage() {
       return;
     }
     downloadCsv("budget-report.csv", [
-      ["Financial Year", "Department", "Cost Center", "Type", "Status", "Total"],
+      [
+        "Financial Year",
+        "Department",
+        "Cost Center",
+        BUDGET_CATEGORY_COLUMN_LABEL,
+        "Status",
+        "Total",
+      ],
       ...filtered.map((p) => [
         String(yearLabel(p.fiscalYearId)),
         deptName(p.costCenterId),
         ccName(p.costCenterId),
-        p.budgetType,
+        budgetCategoryLabel(p.budgetCategory),
         p.status,
         String(p.lines.reduce((s, l) => s + l.amount, 0)),
       ]),
@@ -310,6 +363,13 @@ export default function ReportsPage() {
           ]}
         />
         <GlassSelect
+          aria-label="Filter by budget category"
+          className="w-full sm:w-44"
+          value={typeFilter}
+          onChange={setTypeFilter}
+          options={budgetCategoryFilterOptions()}
+        />
+        <GlassSelect
           aria-label="Filter by cost center"
           className="w-full sm:min-w-[14rem] sm:flex-1 sm:max-w-md"
           value={ccFilter}
@@ -339,19 +399,65 @@ export default function ReportsPage() {
         </div>
       ) : null}
 
+      {totalsByType.catalog.some((t) => t.count > 0) ? (
+        <div className="mb-3 rounded border border-neutral-400/30 bg-white p-3">
+          <p className="mb-2 text-sm font-medium text-kengen-navy">
+            {BUDGET_CATEGORY_DISTRIBUTION_TITLE}
+          </p>
+          <ul className="space-y-1 text-body">
+            {totalsByType.catalog.map((row) => (
+              <li key={row.code} className="flex items-baseline gap-2">
+                <span className="min-w-[10rem] font-medium">{row.label}</span>
+                <span className="flex-1 border-b border-dotted border-neutral-300" />
+                <span className="tabular-nums text-neutral-700">
+                  {row.percent}%
+                </span>
+                <span className="min-w-[7rem] text-right tabular-nums">
+                  {formatCurrency(row.amount)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {totalsByType.legacy.length > 0 ? (
+        <div className="mb-3 rounded border border-neutral-300/50 bg-neutral-50 p-3">
+          <p className="mb-2 text-sm font-medium text-neutral-800">
+            {LEGACY_BUDGET_CATEGORY_DISTRIBUTION_HEADING}
+          </p>
+          <ul className="space-y-1 text-body">
+            {totalsByType.legacy.map((row) => (
+              <li key={row.code} className="flex items-baseline gap-2">
+                <span className="min-w-[10rem] font-medium">{row.label}</span>
+                <span className="flex-1 border-b border-dotted border-neutral-300" />
+                <span className="min-w-[7rem] text-right tabular-nums">
+                  {formatCurrency(row.amount)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {filtered.length === 0 ? (
         <EmptyState fill title="No budgets found" />
-      ) : view === "department" || view === "costCenter" || view === "gl" ? (
+      ) : view === "budgetCategory" ||
+        view === "department" ||
+        view === "costCenter" ||
+        view === "gl" ? (
         <div className="flex-1 overflow-x-auto rounded border border-neutral-400/30 bg-white">
           <table className="w-full text-left text-body">
             <thead className="sticky top-0 bg-neutral-100 text-meta uppercase text-neutral-700">
               <tr>
                 <th className="px-2 py-1.5">
-                  {view === "department"
-                    ? "Department"
-                    : view === "costCenter"
-                      ? "Cost Center"
-                      : "GL Account"}
+                  {view === "budgetCategory"
+                    ? BUDGET_CATEGORY_COLUMN_LABEL
+                    : view === "department"
+                      ? "Department"
+                      : view === "costCenter"
+                        ? "Cost Center"
+                        : "GL Account"}
                 </th>
                 <th className="px-2 py-1.5">
                   {view === "gl" ? "Lines" : "Budgets"}
@@ -418,7 +524,7 @@ export default function ReportsPage() {
                 <th className="px-2 py-1.5">FY</th>
                 <th className="px-2 py-1.5">Department</th>
                 <th className="px-2 py-1.5">Cost Center</th>
-                <th className="px-2 py-1.5">Type</th>
+                <th className="px-2 py-1.5">{BUDGET_CATEGORY_COLUMN_LABEL}</th>
                 <th className="px-2 py-1.5">Status</th>
                 <th className="px-2 py-1.5">Total</th>
               </tr>
@@ -429,7 +535,7 @@ export default function ReportsPage() {
                   <td className="px-2 py-1.5">{yearLabel(p.fiscalYearId)}</td>
                   <td className="px-2 py-1.5">{deptName(p.costCenterId)}</td>
                   <td className="px-2 py-1.5">{ccName(p.costCenterId)}</td>
-                  <td className="px-2 py-1.5">{p.budgetType}</td>
+                  <td className="px-2 py-1.5">{budgetCategoryLabel(p.budgetCategory)}</td>
                   <td className="px-2 py-1.5">
                     <StatusChip status={p.status} />
                   </td>

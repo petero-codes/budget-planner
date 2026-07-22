@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { SupportIssue } from "@/domain/entities";
 import type { ISupportIssueRepository } from "../interfaces";
 import { mockStore } from "./store";

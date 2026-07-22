@@ -1,3 +1,5 @@
+import "server-only";
+
 import sql from "mssql/msnodesqlv8";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { withSqlRetry } from "./sql-retry";
@@ -73,6 +75,30 @@ export async function getPool(): Promise<sql.ConnectionPool> {
       });
   }
   return poolPromise;
+}
+
+/**
+ * Live pool metrics for startup diagnostics.
+ * msnodesqlv8 typings omit `config` / `connected` — the unsafe cast stays here.
+ */
+export type ConnectionPoolState = {
+  min: number | null;
+  max: number | null;
+  connected: boolean;
+};
+
+export function getConnectionPoolState(
+  pool: sql.ConnectionPool
+): ConnectionPoolState {
+  const internals = pool as unknown as {
+    config?: { pool?: { min?: number; max?: number } };
+    connected?: boolean;
+  };
+  return {
+    min: internals.config?.pool?.min ?? null,
+    max: internals.config?.pool?.max ?? null,
+    connected: internals.connected ?? true,
+  };
 }
 
 /** Wrap Request.query / Request.batch with transient retry. */

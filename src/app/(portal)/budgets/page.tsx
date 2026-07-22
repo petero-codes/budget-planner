@@ -10,6 +10,7 @@ import { SkeletonTable } from "@/components/shared/skeleton-table";
 import { ActionLink } from "@/components/ui/button";
 import { apiGet } from "@/lib/client-api";
 import type { BudgetPlan, User } from "@/domain/entities";
+import { budgetCategoryLabel } from "@/domain/constants/budget-types";
 import { formatCurrency } from "@/lib/utils";
 
 export default function BudgetsPage() {
@@ -77,7 +78,7 @@ export default function BudgetsPage() {
                   plan.status === "ReturnedForRevision";
                 return (
                   <tr key={plan.id} className="border-t border-neutral-400/20">
-                    <td className="px-2 py-1.5">{plan.budgetType}</td>
+                    <td className="px-2 py-1.5">{budgetCategoryLabel(plan.budgetCategory)}</td>
                     <td className="px-2 py-1.5 text-meta">
                       {plan.submittedAt
                         ? new Date(plan.submittedAt).toLocaleString()
@@ -98,7 +99,7 @@ export default function BudgetsPage() {
                           href={`/budgets/${plan.id}`}
                           variant="secondary"
                           icon={Eye}
-                          aria-label={`View ${plan.budgetType} budget`}
+                          aria-label={`View ${budgetCategoryLabel(plan.budgetCategory)} budget`}
                         >
                           View
                         </ActionLink>
@@ -111,7 +112,7 @@ export default function BudgetsPage() {
                                 : "secondary"
                             }
                             icon={Pencil}
-                            aria-label={`Edit ${plan.budgetType} budget`}
+                            aria-label={`Edit ${budgetCategoryLabel(plan.budgetCategory)} budget`}
                           >
                             Edit
                           </ActionLink>

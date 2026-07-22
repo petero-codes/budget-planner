@@ -1,5 +1,12 @@
+import "server-only";
+
 import { z } from "zod";
 import { NextResponse } from "next/server";
+import {
+  BUDGET_CATEGORY_CODES,
+  budgetCategoryLabel,
+  isBudgetCategory,
+} from "@/domain/constants/budget-types";
 
 /** Shared zod schemas for API request bodies (never trust the client). */
 
@@ -10,7 +17,11 @@ const period = z
   .max(20, "Period is too long");
 
 export const createDraftSchema = z.object({
-  budgetType: z.string().trim().min(1, "Budget type is required").max(50),
+  budgetCategory: z.enum(BUDGET_CATEGORY_CODES, {
+    errorMap: () => ({
+      message: `Category must be one of: ${BUDGET_CATEGORY_CODES.map(budgetCategoryLabel).join(", ")}`,
+    }),
+  }),
   fiscalYearId: z.string().trim().min(1, "Fiscal year is required").max(64),
   fromPeriod: period,
   toPeriod: period,

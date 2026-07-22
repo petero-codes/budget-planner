@@ -1,3 +1,20 @@
+/**
+ * Domain entities (aggregates / records)
+ *
+ * Responsibility
+ * --------------
+ * Canonical TypeScript shapes for Users, BudgetPlans, Notifications, claims,
+ * fiscal years, and related records. Pure data + small helpers (e.g. isActionableNotification).
+ *
+ * Does NOT:
+ * - persist anything or enforce RBAC (application + repositories do)
+ *
+ * Business Rules: shapes underpin BR-01…37
+ * Related: docs/DOMAIN_GLOSSARY.md, docs/domain-model.md
+ */
+
+import type { BudgetCategoryCode } from "../constants/budget-types";
+
 export interface User {
   id: string;
   name: string;
@@ -96,7 +113,7 @@ export interface BudgetLineage {
   id: string;
   costCenterId: string;
   fiscalYearId: string;
-  originalBudgetType: string;
+  originalBudgetCategory: BudgetCategoryCode;
   budgetNumber: string;
   currentVersionId: string | null;
   latestFinalizedVersionId: string | null;
@@ -160,7 +177,7 @@ export interface BudgetPlan {
   ownerId: string;
   costCenterId: string;
   fiscalYearId: string;
-  budgetType: string;
+  budgetCategory: BudgetCategoryCode;
   fromPeriod: string;
   toPeriod: string;
   /** Free-text notes / justification for this budget. */
@@ -225,14 +242,73 @@ export interface AuditLogEntry {
   timestamp: string;
 }
 
+/** Business object a notification points at, used for navigation + resolution. */
+export type NotificationEntityType =
+  | "Budget"
+  | "User"
+  | "FiscalYear"
+  | "Issue";
+
+export type NotificationPriority = "Low" | "Medium" | "High" | "Critical";
+
+export type NotificationCategory =
+  | "Approval"
+  | "Finance"
+  | "Budget"
+  | "Support"
+  | "Administration"
+  | "FiscalYear"
+  | "Outcome";
+
+/**
+ * Actionable notifications represent outstanding work owned by the recipient.
+ * They stay active until the workflow completes for that recipient and are
+ * auto-resolved by the services — a user can never manually clear them, which
+ * prevents hiding real to-do items. Every other type is informational (an
+ * FYI/outcome) and is acknowledged — and thereby resolved — when the recipient
+ * reads it.
+ */
+export const ACTIONABLE_NOTIFICATION_TYPES = [
+  "Approval",
+  "FinanceQueue",
+  "FinanceClaim",
+  "FinanceEscalation",
+  "SupportIssue",
+  "FiscalYear",
+] as const;
+
+export function isActionableNotification(type: string): boolean {
+  return (ACTIONABLE_NOTIFICATION_TYPES as readonly string[]).includes(type);
+}
+
 export interface Notification {
   id: string;
   userId: string;
   type: string;
   title: string;
-  body: string;
+  message: string;
+  priority: NotificationPriority;
+  category: NotificationCategory;
+  actionLabel: string;
   relatedPlanId: string | null;
+  /** Business entity this notification represents (drives navigation + auto-resolution). */
+  entityType?: NotificationEntityType | null;
+  entityId?: string | null;
+  /** In-app route the notification navigates to when clicked. */
+  targetUrl?: string | null;
   isRead: boolean;
+  /** When the recipient opened/read it. Read is NOT the same as resolved. */
+  readAt?: string | null;
+  /**
+   * When the underlying work reached a terminal state for this recipient
+   * (approved, finalized, returned, resolved…). Resolved notifications drop
+   * out of the active list and the badge count, but remain for history.
+   */
+  resolvedAt?: string | null;
+  /** User whose workflow action completed this task; null for system resolution. */
+  resolvedBy?: string | null;
+  /** Optional deadline after which the task may be treated as stale/escalated. */
+  expiresAt?: string | null;
   createdAt: string;
   /** Soft-cleared — retained for history. Defaults false when omitted on create. */
   isCleared?: boolean;

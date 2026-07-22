@@ -1,5 +1,77 @@
 # Changelog
 
+## 2026-07-22 — Budget Category domain rename
+
+### BREAKING CHANGE
+
+JSON field `budgetType` renamed to `budgetCategory` on budget plan create/update and read APIs.
+Finance dashboard aggregate `byBudgetType` renamed to `byBudgetCategory`.
+
+**Affected endpoints:** `POST /api/v1/budget-plans`, `PATCH /api/v1/budget-plans/:id`, budget plan GET
+responses, `GET /api/v1/finance/dashboard`, `GET /api/v1/finance/approved`.
+
+See `docs/api-contracts.md` and `docs/release-notes/budget-category-rename.md`.
+
+### Added
+
+- Enriched budget category catalog (`order`, `color`, `shortLabel`, display helpers).
+- Finance **Budget Category Distribution** with explicit **All** filter and legacy category section.
+- Reports legacy category aggregates when historical rows exist.
+
+### Changed
+
+- Domain entities use `budgetCategory` / `originalBudgetCategory`; SQL columns `BudgetType` unchanged.
+
+## 2026-07-18 — Notification bell dropdown, duplicate-task guard, approval deep-link
+
+### Added
+
+- Header bell now opens a dropdown of active tasks (priority dot, action label, relative time, "View all notifications"). Opening it never removes anything; clicking an item marks it read, refreshes the badge, and navigates to the work item.
+- Duplicate-task guard (K-009): repositories refuse a second ACTIVE notification for the same recipient + type + plan/entity. SQL enforces it in one atomic `INSERT … WHERE NOT EXISTS`; informational types may still repeat; a resolved task never blocks a fresh one.
+- Approval notifications deep-link to `/budgets/{id}?action=approve`; the budget page scrolls to and highlights the Decision panel when the pending approver arrives via that link.
+- Unit tests: `tests/unit/notification-dedup.test.ts`. Harness: SQL-level duplicate-create no-op check (62 service-level checks total).
+
+## 2026-07-18 — Startup fail-fast & schema versioning
+
+### Changed
+
+- `REPOSITORY_DRIVER` is now **required** (no silent default to mock). Production still requires `sql`. Development must choose `mock` **or** `sql` explicitly. Amended ADR-009.
+- One DI singleton remains the only place repositories are constructed (`src/infrastructure/di.ts`).
+- Startup (`src/instrumentation.ts`) validates environment + database readiness and prints an aligned `SYSTEM STARTUP` report before serving: environment, version + git commit/branch (env vars first; git commands are never spawned in production), repository driver, database driver/name/authenticated user (`SUSER_SNAME()`), connection + pool, schema vs expected, pending migrations, required tables **and required columns** (a table existing without its migration columns fails startup), seed presence across six core tables (Users, Roles, Permissions, Departments, CostCenters, FiscalYears — empty tables warn, they don't block), explicit `WARNING (Development Fallback in use)` wording for fallbacks, DI verification (repositories and critical services must be *verified* — constructed with callable methods — plus one cheapest-possible live read per critical repository: users, budgets, notifications, audits, fiscal years; optional services like the development toolkit only warn), connection pool state (connected + min/max, not just "OK"), a `Checks Passed / Warnings / Failures` summary derived dynamically from the graded checks, and startup time in ms with per-phase timings (database validation, DI initialization) logged separately. Pending migrations, missing columns, unusable critical services, or a failed smoke read refuse SQL startup; optional-service failures do not.
+- `GET /api/v1/system/database-health` is now an authenticated diagnostics endpoint: unauthenticated probes get bare `{ status }` only; signed-in users get operational detail. Server hostname removed from the payload; connection strings, SQL version, and filesystem paths were never exposed.
+- `dbo.SchemaVersion` tracks applied migrations (migration `012`). Registry: `src/infrastructure/migrations/registry.ts`. Apply with `npm run db:migrate`.
+- Startup validation subsystem is **FROZEN (2026-07-18)** — see ADR-009 "Subsystem status". Further changes only for verified bugs, new migrations, deployment requirements, or regressions. Pool metrics are read via a single typed helper (`getConnectionPoolState` in `pool.ts`); the msnodesqlv8 typing cast stays inside that helper. Client **and edge** webpack builds alias `mssql`/`msnodesqlv8`/`child_process` to `false` so the native SQL driver cannot enter a browser or edge bundle (middleware forces an edge compilation that also compiles `instrumentation.ts`); `instrumentation.ts` imports `child_process` via the bare specifier so `next build`'s edge compiler does not choke on a `node:` URI.
+
+### Added
+
+- `npm run db:migrate`, `npm run db:reseed` (alias of seed).
+- Unit tests: `tests/unit/startup-env.test.ts`.
+
+### Still incomplete (documented, not in this pass)
+
+- Repository contract tests against both mock and SQL.
+- CI pipeline (migrate → seed → test).
+- Scheduled / production integrity-check runner (toolkit integrity exists, not startup-wired for prod).
+
+## 2026-07-18 — Task-oriented notifications
+
+### Changed
+
+- Notifications are now a to-do list, not a message feed. A notification stays active until the underlying work is complete for that recipient; reading it no longer removes it.
+  - New task fields: `message`, `priority`, `category`, `entityType`, `entityId`, `targetUrl`, `actionLabel`, `readAt`, `resolvedAt`, `resolvedBy`, and optional `expiresAt` (see migrations `010` and `011`, plus `docs/schema.sql`).
+  - Every notification carries a `targetUrl`; clicking marks it read and navigates directly (budgets → `/budgets/{id}`, finance queue → `/finance?planId={id}`, users → `/admin/users/{id}`, fiscal years → `/admin/fiscal-years`, issues → `/admin/support` or `/support`).
+  - Workflow transitions auto-resolve the recipient's task and record `resolvedBy`: approve, final approval, return, reject, Finance claim/finalize/return/release, support ticket resolve, fiscal-year close.
+  - Finance claim collapses the shared queue and raises a personal "Budget assigned to you" item; release re-opens the queue.
+  - Actionable items (approval / finance queue / finance claim / escalation / support / fiscal-year closure) can never be manually cleared while pending; informational outcomes are acknowledged on read.
+  - Badge counts active (unresolved) notifications regardless of read state.
+- New notification sources: admin user created (to other System Admins) and fiscal-year "requires closure" task (on `setCurrent` when a prior year is still Open; resolved on close).
+- Notifications page: To-do / History tabs, priority/category indicators, task-specific action labels, click-to-open, and "Mark all as read".
+- Repository API: `dismissForPlan` → `resolveForPlan`; added `resolveForEntity`, `resolveOwn`, `markAllRead`, `archiveResolved`; `markRead`/`listByUser` signatures updated.
+
+### Known gap
+
+- A time-based "fiscal year period ended → requires closure" reminder needs a scheduled job (none exists); the closure task is currently raised only on the `setCurrent` event. Marked INCOMPLETE pending a scheduler.
+
 ## 2026-07-17 — Feature E2E proof standard
 
 ### Added

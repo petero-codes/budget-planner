@@ -69,44 +69,64 @@ Each row: the invariant · why it is inviolable · canonical source (edit *there
 | INV-26 | **Accounts are admin-provisioned only** (no public register/forgot/reset). | Enterprise credential model | ADR-010; BR-40 |
 | INV-27 | **App DB login is least-privilege (`app_budget_ops`)**, with DENY on audit tables. | Blast-radius containment | ADR-009/011; BR-42 |
 
-## AI-032 — Browser Safety (architectural contract)
+## AI-032 — Browser Safety Contract v2
 
-**Client Components MUST NOT import:**
+**Core invariant:** No Client Component / browser module may **directly or transitively**
+reach a server-only dependency.
 
-- `application/**`
-- `infrastructure/**`
-- `startup/**`
-- `repositories/**` (including `infrastructure/repositories/**`)
-- SQL modules (`infrastructure/repositories/sql/**`, `mssql`, `msnodesqlv8`)
-- `lib/server/**`, `lib/security/**`, DI, or any module marked `import "server-only"`
-- `package.json`
+Server-only means: Application, Infrastructure (including SQL/DI/startup), `lib/server`,
+`lib/security`, native SQL drivers (`mssql`, `msnodesqlv8`), Node built-ins, or any module
+that value-imports those (fixed-point classification), including modules stamped with
+`import "server-only"`.
 
-**Shared browser logic** belongs under `lib/shared/**` (pure TypeScript) or `lib/client/**`
-(`import "client-only"`). Client Components may also import `components`, `hooks`, and
-generated types.
+**Domain is browser-safe when pure.** `src/domain/**` may be imported by the client when it
+has no value-import of Application, Infrastructure, React, or Next.js. Prefer
+`import type` for domain types when only types are needed (erased at compile time — no
+runtime reachability).
 
-**Enforcement:** Architecture Guard CLI (`npm run lint:boundaries`), CI
-(`.github/workflows/architecture-guard.yml`), dependency-cruiser (`npm run lint:deps`),
-ESLint overrides (complement), browser bundle scan (`npm run lint:browser`), unit tests
-(`tests/unit/architecture-guard.test.ts`).
+### Enforcement levels
 
-**Remaining risks (post-enforcement):**
+| Level | What | Tool |
+|-------|------|------|
+| **1 — Fast path** | Reject direct client/shared imports of known server roots and native packages | Architecture Guard Level 1 |
+| **2 — Reachability** | Import graph + server-only classification + BFS from `"use client"` / `lib/client`; report shortest chain + suggested fix | Architecture Guard Level 2 |
+| **3 — Runtime markers** | `server-only` / `client-only` stamps; webpack aliases (`mssql`/`msnodesqlv8` → false on client/edge) | `scripts/stamp-server-only.ts`, `next.config.js` |
+| **4 — CI + bundle** | Guard + dependency-cruiser + browser artifact scan | `lint:boundaries`, `lint:deps`, `lint:browser`, `.github/workflows/architecture-guard.yml` |
 
-1. **Architectural limitation** — ESLint complements the Architecture Guard CLI; it does not
-   replace it. If a new Client Component is created outside the current lint patterns, the
-   Architecture Guard CLI remains the authoritative enforcement mechanism.
-2. **Technical debt** — compatibility shims under `src/lib/*` (re-exports to `lib/shared` or
-   `lib/client`) should be migrated gradually to reduce indirection. This is debt, not a
-   correctness issue.
-3. **Remaining validation** — browser runtime verification (`/admin`, notification bell,
-   reports, finance) remains part of the staging E2E matrix per `docs/RELEASE_CHECKLIST.md`.
+### Allowed client imports
+
+- `components`, `hooks`, `lib/shared` (pure TS), `lib/client` (`client-only`)
+- Pure `domain/**` (value or `import type`)
+- Generated / shared types (`lib/shared/**`)
+- Never: Application, Infrastructure, SQL, DI, `lib/server`, `lib/security`, `package.json`, Node built-ins
+
+### Diagnostics
+
+Violations print an **import chain** (client → … → server-only) and a **suggested fix**
+(API route, move helper to `lib/shared`, keep SQL on server).
+
+### Roadmap
+
+| Version | Status |
+|---------|--------|
+| **v1** | Direct bans + stamps + CI (Change #020) |
+| **v2** | Transitive reachability + chains + domain purity + type-only handling (**this**) |
+| **v3** | Richer suggested fixes / autofix hints (planned) |
+| **v4** | IDE / pre-commit integration (planned) |
+
+**Remaining risks:**
+
+1. Architecture Guard CLI remains authoritative over ESLint for client boundary scans.
+2. Compatibility shims under `src/lib/*` — migrate gradually to `lib/shared` / `lib/client`.
+3. Browser runtime verification (`/admin`, notification bell, reports, finance) remains on
+   the staging E2E matrix per `docs/RELEASE_CHECKLIST.md`.
 
 ### Detail (INV-28…31)
 
 | # | Invariant | Why inviolable | Canonical source |
 |---|-----------|----------------|------------------|
-| INV-28 | **Browser Safety Rule** — see AI-032. Client Components and `src/lib/client/**` may import only `components`, `hooks`, `lib/shared`, `lib/client`, and generated types. | Prevents native SQL drivers leaking into the browser bundle | **AI-032**; ADR-001 |
-| INV-29 | **`application/**`, `infrastructure/**`, `lib/server/**`, `lib/security/**` are server-only** (`import "server-only"`). **`lib/client/**` is browser-only** (`import "client-only"`). **`lib/shared/**` is pure TypeScript**. | Build-time and CI enforcement | **AI-032**; `scripts/stamp-server-only.ts` |
+| INV-28 | **Browser Safety Rule** — see AI-032 v2. Client / `lib/client` must not reach server-only code (direct or transitive). Pure domain + `lib/shared` + `lib/client` + components/hooks are allowed. | Prevents native SQL drivers leaking into the browser bundle | **AI-032**; ADR-001 |
+| INV-29 | **`application/**`, `infrastructure/**`, `lib/server/**`, `lib/security/**` are server-only** (`import "server-only"`). **`lib/client/**` is browser-only** (`import "client-only"`). **`lib/shared/**` is pure TypeScript**. Domain stays free of Application/Infrastructure/React/Next. | Build-time and CI enforcement | **AI-032**; `scripts/stamp-server-only.ts` |
 | INV-30 | **SQL exists only under `src/infrastructure/repositories/sql/**`.** | Persistence behind repository interfaces | **AI-032**; INV-1; ADR-009 |
 | INV-31 | **App version in the browser uses `NEXT_PUBLIC_APP_VERSION` / `@/lib/shared/app-version`**, never `package.json` in client code. | Keeps build metadata out of client bundles | **AI-032**; `next.config.js` |
 

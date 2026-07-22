@@ -1,5 +1,8 @@
 /** Domain IDs are UUID strings (compatible with SQL Server UNIQUEIDENTIFIER). */
 
+import "server-only";
+
+
 export function newId(_prefix?: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();

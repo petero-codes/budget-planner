@@ -5,6 +5,9 @@
  * Signature covers the payloadB64 string.
  */
 
+import "server-only";
+
+
 export const SESSION_TTL_SECONDS = 60 * 60 * 8; // 8h — matches cookie maxAge
 
 export type SessionClaims = {

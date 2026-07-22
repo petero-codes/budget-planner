@@ -1,3 +1,5 @@
+import "server-only";
+
 import type {
   BudgetAttachment,
   BudgetAttachmentCategory,
@@ -27,11 +29,15 @@ export class SqlBudgetLineageRepository implements IBudgetLineageRepository {
     const row = result.recordset[0] as Record<string, unknown> | undefined;
     return row ? mapLineage(row) : null;
   }
-  async getByKey(costCenterId: string, fiscalYearId: string, originalBudgetType: string) {
+  async getByKey(
+    costCenterId: string,
+    fiscalYearId: string,
+    originalBudgetCategory: string
+  ) {
     const r = await req();
     r.input("cc", sql.UniqueIdentifier, costCenterId);
     r.input("fy", sql.UniqueIdentifier, fiscalYearId);
-    r.input("type", sql.NVarChar(50), originalBudgetType);
+    r.input("type", sql.NVarChar(50), originalBudgetCategory);
     const result = await r.query(`
       SELECT * FROM dbo.BudgetLineage
       WHERE CostCenterId = @cc AND FiscalYearId = @fy
@@ -49,7 +55,7 @@ export class SqlBudgetLineageRepository implements IBudgetLineageRepository {
     r.input("id", sql.UniqueIdentifier, lineage.id);
     r.input("cc", sql.UniqueIdentifier, lineage.costCenterId);
     r.input("fy", sql.UniqueIdentifier, lineage.fiscalYearId);
-    r.input("type", sql.NVarChar(50), lineage.originalBudgetType);
+    r.input("type", sql.NVarChar(50), lineage.originalBudgetCategory);
     r.input("num", sql.NVarChar(50), lineage.budgetNumber);
     // Null CurrentVersionId is required on first insert (circular FK with BudgetPlans).
     r.input(
@@ -108,7 +114,7 @@ function mapLineage(row: Record<string, unknown>): BudgetLineage {
     id: String(row.LineageId),
     costCenterId: String(row.CostCenterId),
     fiscalYearId: String(row.FiscalYearId),
-    originalBudgetType: String(row.OriginalBudgetType),
+    originalBudgetCategory: String(row.OriginalBudgetType),
     budgetNumber: String(row.BudgetNumber),
     currentVersionId: row.CurrentVersionId ? String(row.CurrentVersionId) : null,
     latestFinalizedVersionId: row.LatestFinalizedVersionId
@@ -291,9 +297,9 @@ export class SqlBudgetAttachmentCategoryRepository
     `);
     return (result.recordset as Record<string, unknown>[]).map(mapCategory);
   }
-  async listRequiredForBudgetType(budgetType: string) {
+  async listRequiredForBudgetCategory(budgetCategory: string) {
     const r = await req();
-    r.input("type", sql.NVarChar(50), budgetType);
+    r.input("type", sql.NVarChar(50), budgetCategory);
     const result = await r.query(`
       SELECT c.* FROM dbo.BudgetAttachmentCategories c
       INNER JOIN dbo.BudgetTypeAttachmentRequirements r
@@ -330,13 +336,13 @@ export class SqlBudgetAttachmentCategoryRepository
     }
     return category;
   }
-  async setRequirements(budgetType: string, categoryIds: string[]) {
+  async setRequirements(budgetCategory: string, categoryIds: string[]) {
     const del = await req();
-    del.input("type", sql.NVarChar(50), budgetType);
+    del.input("type", sql.NVarChar(50), budgetCategory);
     await del.query(`DELETE FROM dbo.BudgetTypeAttachmentRequirements WHERE BudgetType = @type`);
     for (const catId of categoryIds) {
       const r = await req();
-      r.input("type", sql.NVarChar(50), budgetType);
+      r.input("type", sql.NVarChar(50), budgetCategory);
       r.input("catId", sql.UniqueIdentifier, catId);
       await r.query(`
         INSERT INTO dbo.BudgetTypeAttachmentRequirements (BudgetType, CategoryId)

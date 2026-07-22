@@ -28,6 +28,10 @@ import {
   deleteTestLineage,
   withImmutabilityTriggersDisabled,
 } from "./lib/test-database-cleaner";
+import {
+  BUDGET_CATEGORY_CATALOG,
+  defaultBudgetCategory,
+} from "../src/domain/constants/budget-types";
 
 process.env.REPOSITORY_DRIVER = process.env.REPOSITORY_DRIVER ?? "sql";
 // NODE_ENV is typed read-only in the Next.js env augmentation; set via cast
@@ -208,7 +212,7 @@ async function main(): Promise<void> {
   console.log(`Fiscal year: ${fy.yearLabel} (${fy.status}); finance users seeded: ${financeUsers.length}`);
 
   const draftInput = {
-    budgetType: "Primary",
+    budgetCategory: defaultBudgetCategory(),
     fiscalYearId: fy.id,
     fromPeriod: fy.startDate,
     toPeriod: fy.endDate,
@@ -217,8 +221,8 @@ async function main(): Promise<void> {
     lines: [{ glAccountId: gl.id, amount: 250000 }],
   };
 
-  // Pre-clean any leftovers from an interrupted run (Primary + Supplementary).
-  for (const t of ["Primary", "Supplementary"]) {
+  // Pre-clean any leftovers from an interrupted run (all catalog types).
+  for (const t of BUDGET_CATEGORY_CATALOG.map((e) => e.code)) {
     const existing = await repos.lineages.getByKey(
       edwin.primaryCostCenterId,
       fy.id,
@@ -257,11 +261,35 @@ async function main(): Promise<void> {
     const mgrNotif = activeFor(ns, geofrey.id)[0];
     check("Manager notification type = Approval", String(mgrNotif?.Type) === "Approval");
     check(
-      "Manager notification targetUrl = /budgets/{id}",
-      String(mgrNotif?.TargetUrl) === `/budgets/${planId}`
+      "Manager notification targetUrl deep-links to /budgets/{id}?action=approve",
+      String(mgrNotif?.TargetUrl) === `/budgets/${planId}?action=approve`
     );
     check("GM has no active notification yet", activeFor(ns, joyce.id).length === 0);
     check("Finance has no active notification yet", activeFor(ns, finance.id).length === 0);
+
+    // Duplicate-task guard (K-009): a second create for the same active task
+    // must be a no-op at the SQL level (atomic INSERT ... WHERE NOT EXISTS).
+    await repos.notifications.create({
+      id: crypto.randomUUID(),
+      userId: geofrey.id,
+      type: "Approval",
+      title: "Budget awaiting your approval",
+      message: "duplicate attempt",
+      priority: "High",
+      category: "Approval",
+      actionLabel: "Review Budget",
+      relatedPlanId: planId,
+      entityType: "Budget",
+      entityId: planId,
+      targetUrl: `/budgets/${planId}?action=approve`,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    });
+    ns = await notifRows(planId);
+    check(
+      "NEG duplicate active Approval create is a no-op (SQL dedup guard)",
+      activeFor(ns, geofrey.id).length === 1
+    );
 
     let h = await historyRows(planId);
     check("ApprovalHistory has Submitted", h.some((x) => x.Action === "Submitted"));
@@ -307,7 +335,7 @@ async function main(): Promise<void> {
     check("GM now has exactly 1 active notification", activeFor(ns, joyce.id).length === 1);
     const gmNotif = activeFor(ns, joyce.id)[0];
     check("GM notification type = Approval", String(gmNotif?.Type) === "Approval");
-    check("GM targetUrl = /budgets/{id}", String(gmNotif?.TargetUrl) === `/budgets/${planId}`);
+    check("GM targetUrl deep-links to /budgets/{id}?action=approve", String(gmNotif?.TargetUrl) === `/budgets/${planId}?action=approve`);
     check("no duplicate active Approval for GM", activeFor(ns, joyce.id).filter((n) => n.Type === "Approval").length === 1);
 
     h = await historyRows(planId);
@@ -454,12 +482,12 @@ async function main(): Promise<void> {
 
     // =====================================================================
     // NEGATIVE — returned budget creates outcome + becomes editable again
-    // (separate Supplementary lineage so it doesn't collide with A)
+    // (separate Major lineage so it doesn't collide with A)
     // =====================================================================
     section("NEGATIVE  Return-for-revision re-opens the budget");
     const draftB = await budgetPlanService.createDraft(edwin, {
       ...draftInput,
-      budgetType: "Supplementary",
+      budgetCategory: BUDGET_CATEGORY_CATALOG[1]!.code,
       description: "E2E return path",
     });
     lineageB = draftB.lineageId ?? "";
@@ -480,7 +508,7 @@ async function main(): Promise<void> {
     // editable again
     const edited = await budgetPlanService.updateDraft(submittedB.id, edwin, {
       ...draftInput,
-      budgetType: "Supplementary",
+      budgetCategory: BUDGET_CATEGORY_CATALOG[1]!.code,
       description: "revised after return",
       lines: [{ glAccountId: gl.id, amount: 300000 }],
     });

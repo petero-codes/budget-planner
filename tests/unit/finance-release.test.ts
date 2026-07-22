@@ -17,7 +17,7 @@ describe("FinanceService.release", () => {
       ownerId: IDS.patrick,
       costCenterId: IDS.ccRelMgmt,
       fiscalYearId: IDS.fy2027,
-      budgetType: "Primary",
+      budgetCategory: "RECURRENT",
       fromPeriod: "2026-07-01",
       toPeriod: "2027-06-30",
       description: null,

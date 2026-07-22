@@ -51,7 +51,7 @@ If any of **1–10** is **MISSING**, status = **INCOMPLETE**.
 | Finance release | COMPLETE | — |
 | Active budget conflict (409) | COMPLETE | — |
 | Amendment after finalized | COMPLETE* | *No `AuditLogs` append (workflow history only) — document as residual if audit required |
-| Notifications list/dismiss | **INCOMPLETE** | No application service (route→repo) |
+| Notification task lifecycle | COMPLETE | Unit coverage for read vs resolve + destination URLs; staging matrix still records browser evidence |
 | Reports view | **INCOMPLETE** | No automated test for reports API |
 | Reports client CSV export | **INCOMPLETE** | No dedicated API/audit/test (client Blob only) |
 | SAP form download (CSV) | COMPLETE* | *Auth tested; sap-export alternate path weaker |
@@ -133,22 +133,22 @@ If any of **1–10** is **MISSING**, status = **INCOMPLETE**.
 | 11 | Open draft → Edit → Save |
 | 12 | Draft updated |
 
-### Notifications list/dismiss — INCOMPLETE
+### Notification task lifecycle — COMPLETE
 
 | # | Evidence |
 |---|----------|
-| 1 | `/notifications` (+ header bell) |
-| 2 | `GET` / `DELETE /api/v1/notifications` |
-| 3 | **MISSING** (route → repo) |
-| 4 | none |
+| 1 | `/notifications` (+ header bell **dropdown** — active tasks with priority dot / action label / relative time, "View all notifications"; `src/components/layout/notification-bell.tsx`); **To-do**, **History**, **Mark all as read**, task action labels |
+| 2 | `GET /api/v1/notifications`, `GET /api/v1/notifications?view=history`, `POST /api/v1/notifications?action=read&id={id}`, `POST /api/v1/notifications?action=readAll`, `DELETE /api/v1/notifications?id={id}` (resolved history only) |
+| 3 | `markNotificationRead` / `markAllNotificationsRead` / `notificationDestination` in `src/application/notification-task-actions.ts`; workflow resolution orchestrated by `ApprovalService`, `FinanceService`, `SupportIssueService`, `FiscalYearService` |
+| 4 | `isActionableNotification`; read does not resolve actionable work; unresolved actionable work cannot be manually archived; duplicate-task guard — no second ACTIVE task per recipient+type+plan/entity (K-009, repository `create`) |
 | 5 | `INotificationRepository` |
-| 6 | dismiss updates `dbo.Notifications` |
+| 6 | `dbo.Notifications` (`ReadAt`, `ResolvedAt`, `ResolvedBy`, `IsCleared`, task metadata); migrations `010-notification-tasks.sql`, `011-notification-task-metadata.sql` |
 | 7 | none |
-| 8 | (is the inbox) |
+| 8 | Approval, Finance queue/claim/escalation, support issue, fiscal-year closure, admin-user and outcome notifications |
 | 9 | authenticated only |
-| 10 | soft-clear ownership: `tests/unit/notification-dismiss.test.ts` (partial) |
-| 11 | Staging H10 |
-| 12 | Own notifications only; dismiss soft-clears |
+| 10 | Click→read→destination + read≠resolve: `tests/unit/notification-read-lifecycle.test.ts`; duplicate-task guard: `tests/unit/notification-dedup.test.ts` + SQL harness check "NEG duplicate active Approval create is a no-op"; archive ownership/resolvedBy: `tests/unit/notification-dismiss.test.ts`; Finance queue→personal→resolved: `tests/unit/finance-audit.test.ts`; support resolution: `tests/unit/support-issue-service.test.ts` |
+| 11 | Submit budget → sign in as approver → open bell dropdown → click **Review Budget** → verify URL `/budgets/{id}?action=approve` with the Decision panel focused, and the task remains in To-do as read → approve → verify it leaves To-do and appears in History with `resolvedAt`/`resolvedBy`; repeat Finance claim/finalize (staging matrix) |
+| 12 | Read state changes without completing work; workflow action resolves it; active badge drops; resolved item moves to History; pending work cannot be deleted |
 
 ### Reports view / client CSV — INCOMPLETE
 

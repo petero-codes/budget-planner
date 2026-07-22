@@ -1,3 +1,5 @@
+import "server-only";
+
 import { NextResponse } from "next/server";
 import { AdminUserServiceError } from "@/application/admin-user-service";
 import { MasterDataServiceError } from "@/application/master-data-service";

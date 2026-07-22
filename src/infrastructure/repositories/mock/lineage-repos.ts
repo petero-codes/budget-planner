@@ -1,3 +1,5 @@
+import "server-only";
+
 import type {
   IBudgetAttachmentCategoryRepository,
   IBudgetAttachmentRepository,
@@ -51,12 +53,16 @@ export class MockBudgetLineageRepository implements IBudgetLineageRepository {
   async getById(id: string) {
     return structuredClone(mockStore.lineages.find((l) => l.id === id) ?? null);
   }
-  async getByKey(costCenterId: string, fiscalYearId: string, originalBudgetType: string) {
+  async getByKey(
+    costCenterId: string,
+    fiscalYearId: string,
+    originalBudgetCategory: string
+  ) {
     const l = mockStore.lineages.find(
       (x) =>
         x.costCenterId === costCenterId &&
         x.fiscalYearId === fiscalYearId &&
-        x.originalBudgetType === originalBudgetType &&
+        x.originalBudgetCategory === originalBudgetCategory &&
         !x.isArchived
     );
     return l ? structuredClone(l) : null;
@@ -156,8 +162,8 @@ export class MockBudgetAttachmentCategoryRepository
       mockStore.attachmentCategories.filter((c) => c.isActive)
     );
   }
-  async listRequiredForBudgetType(budgetType: string) {
-    const ids = mockStore.attachmentRequirements.get(budgetType) ?? [];
+  async listRequiredForBudgetCategory(budgetCategory: string) {
+    const ids = mockStore.attachmentRequirements.get(budgetCategory) ?? [];
     return structuredClone(
       mockStore.attachmentCategories.filter((c) => ids.includes(c.id))
     );
@@ -171,8 +177,8 @@ export class MockBudgetAttachmentCategoryRepository
     else mockStore.attachmentCategories.push(structuredClone(category));
     return structuredClone(category);
   }
-  async setRequirements(budgetType: string, categoryIds: string[]) {
-    mockStore.attachmentRequirements.set(budgetType, [...categoryIds]);
+  async setRequirements(budgetCategory: string, categoryIds: string[]) {
+    mockStore.attachmentRequirements.set(budgetCategory, [...categoryIds]);
   }
 }
 

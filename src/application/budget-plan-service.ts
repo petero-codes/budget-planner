@@ -1,3 +1,5 @@
+import "server-only";
+
 import {
   assertCanEditDraft,
   assertNotLocked,
@@ -11,8 +13,11 @@ import {
   nextSequenceForDepartment,
 } from "@/domain/rules/budget-number";
 import {
-  isOriginalBudgetType,
-} from "@/domain/rules/build-approval-route";
+  BUDGET_CATEGORY_CODES,
+  budgetCategoryLabel,
+  defaultBudgetCategory,
+  isBudgetCategory,
+} from "@/domain/constants/budget-types";
 import type {
   ApprovalHistoryEntry,
   BudgetAttachment,
@@ -54,7 +59,7 @@ import { compareVersions } from "./version-compare-service";
 import { listFinanceAdministrators } from "./workflow-recorder";
 
 export interface CreateDraftInput {
-  budgetType: string;
+  budgetCategory: string;
   fiscalYearId: string;
   fromPeriod: string;
   toPeriod: string;
@@ -63,6 +68,23 @@ export interface CreateDraftInput {
   lines: { glAccountId: string; amount: number }[];
 }
 
+/**
+ * BudgetPlanService
+ *
+ * Responsibility
+ * --------------
+ * Owns budget create/edit/list, lineage, amendments, and attachment orchestration.
+ * Hands off to ApprovalService on submit.
+ *
+ * Does NOT:
+ * - approve / reject / claim / finalize
+ * - build the manager route (ApprovalService / buildApprovalRoute)
+ *
+ * Business Rules: BR-01…13, BR-06
+ * Workflows: WF-001, WF-012
+ * Dependencies: ApprovalService, AuthorizationService, UnitOfWork, budget/lineage/
+ *   attachment/audit repositories
+ */
 export class BudgetPlanService {
   constructor(
     private readonly budgets: IBudgetPlanRepository,
@@ -185,10 +207,10 @@ export class BudgetPlanService {
         "You can only create budgets for your own cost center"
       );
     }
-    const budgetType = input.budgetType.trim();
-    if (!isOriginalBudgetType(budgetType)) {
+    const budgetCategory = input.budgetCategory.trim();
+    if (!isBudgetCategory(budgetCategory)) {
       throw new Error(
-        `Only original budget types (${["Primary", "Supplementary"].join(", ")}) may start a new lineage. Use Create Amendment for revisions.`
+        `Only catalog categories (${BUDGET_CATEGORY_CODES.map(budgetCategoryLabel).join(", ")}) may start a new lineage. Use Create Amendment for revisions.`
       );
     }
 
@@ -206,7 +228,7 @@ export class BudgetPlanService {
     const existingLineage = await this.lineages.getByKey(
       input.costCenterId,
       input.fiscalYearId,
-      budgetType
+      budgetCategory
     );
     if (existingLineage) {
       await this.assertNoActiveInLineage(existingLineage.id);
@@ -250,7 +272,7 @@ export class BudgetPlanService {
       id: lineageId,
       costCenterId: input.costCenterId,
       fiscalYearId: input.fiscalYearId,
-      originalBudgetType: budgetType,
+      originalBudgetCategory: budgetCategory,
       budgetNumber,
       currentVersionId: planId,
       latestFinalizedVersionId: null,
@@ -263,7 +285,7 @@ export class BudgetPlanService {
       ownerId: actor.id,
       costCenterId: input.costCenterId,
       fiscalYearId: input.fiscalYearId,
-      budgetType,
+      budgetCategory,
       fromPeriod: input.fromPeriod,
       toPeriod: input.toPeriod,
       description: input.description?.trim() || null,
@@ -429,8 +451,14 @@ export class BudgetPlanService {
           userId,
           type: "Amendment",
           title: "Budget amendment drafted",
-          body: `${actor.name} created amendment ${versionLabel}: ${reason.trim()}`,
+          message: `${actor.name} created amendment ${versionLabel}: ${reason.trim()}`,
+          priority: "Medium",
+          category: "Budget",
+          actionLabel: "View Amendment",
           relatedPlanId: plan.id,
+          entityType: "Budget",
+          entityId: plan.id,
+          targetUrl: `/budgets/${plan.id}`,
           isRead: false,
           createdAt: now,
         });
@@ -512,7 +540,7 @@ export class BudgetPlanService {
       await this.assertNoActiveInLineage(plan.lineageId, plan.id);
     }
 
-    plan.budgetType = input.budgetType.trim();
+    plan.budgetCategory = input.budgetCategory.trim();
     plan.fiscalYearId = input.fiscalYearId;
     plan.fromPeriod = input.fromPeriod;
     plan.toPeriod = input.toPeriod;

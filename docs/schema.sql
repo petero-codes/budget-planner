@@ -279,8 +279,21 @@ BEGIN
     Type NVARCHAR(50) NOT NULL,
     Title NVARCHAR(200) NOT NULL,
     Body NVARCHAR(1000) NOT NULL,
+    Priority NVARCHAR(20) NOT NULL CONSTRAINT DF_Notifications_Priority DEFAULT (N'Medium'),
+    Category NVARCHAR(30) NOT NULL CONSTRAINT DF_Notifications_Category DEFAULT (N'Budget'),
+    ActionLabel NVARCHAR(100) NOT NULL CONSTRAINT DF_Notifications_ActionLabel DEFAULT (N'View'),
     RelatedBudgetPlanId UNIQUEIDENTIFIER NULL,
+    -- Task-oriented model: the business entity the notification represents,
+    -- the route it navigates to, and read/resolution timestamps.
+    EntityType NVARCHAR(30) NULL,
+    EntityId NVARCHAR(100) NULL,
+    TargetUrl NVARCHAR(400) NULL,
     IsRead BIT NOT NULL CONSTRAINT DF_Notifications_IsRead DEFAULT (0),
+    ReadAt DATETIME2 NULL,
+    ResolvedAt DATETIME2 NULL,
+    ResolvedBy UNIQUEIDENTIFIER NULL
+      CONSTRAINT FK_Notifications_ResolvedBy REFERENCES dbo.Users(UserId),
+    ExpiresAt DATETIME2 NULL,
     CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_Notifications_CreatedAt DEFAULT (SYSUTCDATETIME())
   );
 END
@@ -288,6 +301,23 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Notifications_UserId_IsRead' AND object_id = OBJECT_ID(N'dbo.Notifications'))
   CREATE INDEX IX_Notifications_UserId_IsRead ON dbo.Notifications(UserId, IsRead);
+GO
+
+-- Active-notification lookups (badge + active list) filter on the resolution state.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Notifications_UserId_Resolved' AND object_id = OBJECT_ID(N'dbo.Notifications'))
+  CREATE INDEX IX_Notifications_UserId_Resolved ON dbo.Notifications(UserId, ResolvedAt);
+GO
+
+-- Schema version tracking (applied migrations).
+IF OBJECT_ID('dbo.SchemaVersion', 'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.SchemaVersion (
+    Version NVARCHAR(20) NOT NULL CONSTRAINT PK_SchemaVersion PRIMARY KEY,
+    AppliedAt DATETIME2 NOT NULL CONSTRAINT DF_SchemaVersion_AppliedAt DEFAULT (SYSUTCDATETIME()),
+    AppliedBy NVARCHAR(200) NULL,
+    FileName NVARCHAR(260) NULL
+  );
+END
 GO
 
 -- Cost center ownership FK (Users must already exist).

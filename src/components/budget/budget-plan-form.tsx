@@ -2,6 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { BudgetCategoryCode } from "@/domain/constants/budget-types";
+import {
+  BUDGET_CATEGORY_FIELD_LABEL,
+  budgetCategoryLabel,
+  budgetCategorySelectOptions,
+  defaultBudgetCategory,
+} from "@/domain/constants/budget-types";
 import type {
   BudgetPlan,
   CostCenter,
@@ -9,7 +16,6 @@ import type {
   GlAccount,
   User,
 } from "@/domain/entities";
-import type { ExistingActiveBudget } from "@/domain/existing-active-budget";
 import { BUDGET_STATUS_LABEL } from "@/domain/value-objects/budget-status";
 import { ApiError, apiGet, apiSend } from "@/lib/client-api";
 import { GlassSelect } from "@/components/ui/glass-select";
@@ -45,7 +51,9 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
   const [glAccounts, setGlAccounts] = useState<GlAccount[]>([]);
   const [usersById, setUsersById] = useState<Map<string, string>>(new Map());
   const [existingPlans, setExistingPlans] = useState<BudgetPlan[]>([]);
-  const [budgetType, setBudgetType] = useState("Primary");
+  const [budgetCategory, setBudgetCategory] = useState<BudgetCategoryCode>(
+    defaultBudgetCategory()
+  );
   const [fiscalYearId, setFiscalYearId] = useState("");
   const [fromPeriod, setFromPeriod] = useState("2026-07-01");
   const [toPeriod, setToPeriod] = useState("2027-06-30");
@@ -104,7 +112,7 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
         if (planId) {
           const plan = await apiGet<{
             id: string;
-            budgetType: string;
+            budgetCategory: string;
             fiscalYearId: string;
             fromPeriod: string;
             toPeriod: string;
@@ -112,7 +120,7 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
             lines: { glAccountId: string; amount: number }[];
           }>(`/api/v1/budget-plans/${planId}`);
           if (cancelled) return;
-          setBudgetType(plan.budgetType);
+          setBudgetCategory(plan.budgetCategory as BudgetCategoryCode);
           setFiscalYearId(plan.fiscalYearId);
           setFromPeriod(plan.fromPeriod);
           setToPeriod(plan.toPeriod);
@@ -138,14 +146,14 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
   }, [planId]);
 
   const proactiveConflict = useMemo((): ExistingActiveBudget | null => {
-    if (planId || loadedPlanId || !user || !fiscalYearId || !budgetType) {
+    if (planId || loadedPlanId || !user || !fiscalYearId || !budgetCategory) {
       return null;
     }
     const match = existingPlans.find(
       (plan) =>
         plan.costCenterId === user.primaryCostCenterId &&
         plan.fiscalYearId === fiscalYearId &&
-        plan.budgetType === budgetType &&
+        plan.budgetCategory === budgetCategory &&
         ACTIVE_STATUSES.has(plan.status)
     );
     if (!match) return null;
@@ -153,7 +161,7 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
     return {
       id: match.id,
       status: match.status,
-      budgetType: match.budgetType,
+      budgetCategory: match.budgetCategory,
       costCenterId: match.costCenterId,
       costCenterCode: costCenter?.code ?? match.costCenterId,
       costCenterName: costCenter?.name ?? "",
@@ -168,7 +176,7 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
     loadedPlanId,
     user,
     fiscalYearId,
-    budgetType,
+    budgetCategory,
     existingPlans,
     fiscalYears,
     costCenter,
@@ -211,7 +219,7 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
     if (submitAfter) setSubmitting(true);
     try {
       const payload = {
-        budgetType,
+        budgetCategory,
         fiscalYearId,
         fromPeriod,
         toPeriod,
@@ -282,7 +290,7 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
         <div className="rounded border border-kengen-navy/25 bg-white px-4 py-3 text-body">
           <p className="font-medium text-kengen-navy">Active budget found</p>
           <p className="mt-1 text-neutral-700">
-            An active {activeConflict.budgetType} budget already exists for Cost
+            An active {budgetCategoryLabel(activeConflict.budgetCategory)} budget already exists for Cost
             Center {activeConflict.costCenterCode} for FY
             {activeConflict.fiscalYearLabel}.
           </p>
@@ -328,20 +336,17 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
 
       <div className="grid gap-3 rounded-2xl border border-white/50 bg-white/70 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-md md:grid-cols-3">
         <label className="text-meta">
-          Budget Type
+          {BUDGET_CATEGORY_FIELD_LABEL}
           <GlassSelect
             className="mt-1"
-            aria-label="Budget type"
-            value={budgetType}
+            aria-label="Budget category"
+            value={budgetCategory}
             onChange={(value) => {
-              setBudgetType(value);
+              setBudgetCategory(value as BudgetCategoryCode);
               setConflict(null);
               setError(null);
             }}
-            options={[
-              { value: "Primary", label: "Primary" },
-              { value: "Supplementary", label: "Supplementary" },
-            ]}
+            options={budgetCategorySelectOptions()}
           />
         </label>
         <label className="text-meta">
@@ -416,11 +421,15 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
         </div>
         <ul className="divide-y divide-white/40">
           {lines.map((line, index) => {
-            const canRemove = lines.length > 1;
+            const canRemoveLine = lines.length > 1;
             return (
               <li
                 key={line.key}
-                className="grid gap-2 p-3 sm:grid-cols-[auto_minmax(0,1fr)_8rem_auto] sm:items-end"
+                className={`grid gap-2 p-3 sm:items-end ${
+                  canRemoveLine
+                    ? "sm:grid-cols-[auto_minmax(0,1fr)_8rem_auto]"
+                    : "sm:grid-cols-[auto_minmax(0,1fr)_8rem]"
+                }`}
               >
                 <span className="text-meta text-neutral-600 sm:pb-2">
                   #{index + 1}
@@ -456,38 +465,25 @@ export function BudgetPlanForm({ planId }: { planId?: string }) {
                     }}
                   />
                 </label>
-                <div className="flex flex-col items-stretch gap-1 sm:items-end">
-                  <Button
-                    type="button"
-                    variant="danger"
-                    size="compact"
-                    icon={Trash2}
-                    disabled={!canRemove}
-                    title={
-                      canRemove
-                        ? `Remove line ${index + 1}`
-                        : "Add another line first — at least one line is required"
-                    }
-                    aria-label={
-                      canRemove
-                        ? `Remove line ${index + 1}`
-                        : "Cannot remove the last budget line"
-                    }
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (!canRemove) return;
-                      removeLine(line.key);
-                    }}
-                  >
-                    Remove
-                  </Button>
-                  {!canRemove ? (
-                    <span className="text-[11px] text-neutral-500 sm:max-w-[7rem] sm:text-right">
-                      Add a line to enable Remove
-                    </span>
-                  ) : null}
-                </div>
+                {canRemoveLine ? (
+                  <div className="flex flex-col items-stretch sm:items-end">
+                    <Button
+                      type="button"
+                      variant="danger"
+                      size="compact"
+                      icon={Trash2}
+                      title={`Remove line ${index + 1}`}
+                      aria-label={`Remove line ${index + 1}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        removeLine(line.key);
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ) : null}
               </li>
             );
           })}

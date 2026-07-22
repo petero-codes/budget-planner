@@ -32,7 +32,7 @@ export function compareVersions(
   }> = [
     { field: "Department", from: from.costCenterId, to: to.costCenterId },
     { field: "Budget Owner", from: from.ownerId, to: to.ownerId },
-    { field: "Budget Type", from: from.budgetType, to: to.budgetType },
+    { field: "Budget Category", from: from.budgetCategory, to: to.budgetCategory },
     { field: "From Period", from: from.fromPeriod, to: to.fromPeriod },
     { field: "To Period", from: from.toPeriod, to: to.toPeriod },
     { field: "Description", from: from.description, to: to.description },

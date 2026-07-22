@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { User } from "@/domain/entities";
 import type {
   IApprovalHistoryRepository,
@@ -15,6 +17,7 @@ import {
   AuthorizationError,
   AuthorizationService,
 } from "./authorization-service";
+import { budgetCategoryLabel } from "@/domain/constants/budget-types";
 
 export type SapGlLine = {
   glCode: string;
@@ -31,6 +34,7 @@ export type SapApprovalStep = {
 
 export type SapComplianceForm = {
   budgetNumber: string;
+  budgetCategory: string;
   sapReference: string;
   fiscalYear: number;
   department: string;
@@ -45,6 +49,21 @@ export type SapComplianceForm = {
   generationDate: string;
 };
 
+/**
+ * SapComplianceService
+ *
+ * Responsibility
+ * --------------
+ * Builds SAP compliance form / export payloads from finalized (or legacy Approved)
+ * budget plans. Does not change plan status.
+ *
+ * Does NOT:
+ * - finalize budgets (FinanceService) or alter claims
+ *
+ * Business Rules: BR-27, BR-28
+ * Workflows: WF-018
+ * Dependencies: AuthorizationService, budgets/glAccounts/sapPackages/audits
+ */
 export class SapComplianceService {
   constructor(
     private readonly budgets: IBudgetPlanRepository,
@@ -67,7 +86,11 @@ export class SapComplianceService {
 
     const frozen = await this.sapPackages.getByBudgetPlanId(planId);
     if (frozen) {
-      return JSON.parse(frozen.packageJson) as SapComplianceForm;
+      const parsed = JSON.parse(frozen.packageJson) as SapComplianceForm;
+      return {
+        ...parsed,
+        budgetCategory: parsed.budgetCategory ?? plan.budgetCategory,
+      };
     }
 
     if (plan.status !== "Finalized" && plan.status !== "Approved") {
@@ -102,6 +125,7 @@ export class SapComplianceService {
 
     return {
       budgetNumber: plan.versionLabel ?? `BGT-${plan.id.replace(/-/g, "").slice(0, 10).toUpperCase()}`,
+      budgetCategory: plan.budgetCategory,
       sapReference:
         plan.sapVersion && plan.sapVersion !== "V1"
           ? plan.sapVersion
@@ -182,6 +206,8 @@ export function sapFormToCsv(form: SapComplianceForm): string {
   const rows: string[][] = [
     ["SAP Compliance Form"],
     ["Budget Number", form.budgetNumber],
+    ["BudgetType", form.budgetCategory],
+    ["Category", budgetCategoryLabel(form.budgetCategory)],
     ["SAP Reference", form.sapReference],
     ["Financial Year", String(form.fiscalYear)],
     ["Department", form.department],
@@ -215,6 +241,8 @@ export function sapFormToExcelHtml(form: SapComplianceForm): string {
 <table border="1">
 ${row(["SAP Compliance Form"], true)}
 ${row(["Budget Number", form.budgetNumber])}
+${row(["BudgetType", form.budgetCategory])}
+${row(["Category", budgetCategoryLabel(form.budgetCategory)])}
 ${row(["SAP Reference", form.sapReference])}
 ${row(["Financial Year", form.fiscalYear])}
 ${row(["Department", form.department])}

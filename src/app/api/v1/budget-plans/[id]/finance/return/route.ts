@@ -3,6 +3,7 @@ import { financeService, getCurrentUser } from "@/infrastructure/di";
 import { parseBody, returnSchema } from "@/lib/security/api-schemas";
 import { budgetApiError } from "@/lib/security/budget-api-error";
 
+/** POST /api/v1/budget-plans/:id/finance/return — WF-008 → FinanceService.returnForRevision */
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }

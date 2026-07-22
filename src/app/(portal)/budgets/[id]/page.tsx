@@ -25,6 +25,7 @@ import type {
 } from "@/domain/entities";
 import type { VersionCompareResult } from "@/lib/shared/version-compare-types";
 import { formatCurrency } from "@/lib/utils";
+import { budgetCategoryLabel } from "@/domain/constants/budget-types";
 import { latestApprovalOutcome } from "@/domain/rules/approval-outcome";
 import { resolveOrgRole } from "@/domain/rules/org-role";
 import { reviewStageLabel } from "@/domain/value-objects/budget-status";
@@ -223,7 +224,16 @@ export default function BudgetDetailPage() {
         cache: "no-store",
       });
       if (!res.ok) {
-        setError(`Export failed (${res.status})`);
+        let detail = `Export failed (${res.status})`;
+        try {
+          const body = (await res.json()) as {
+            error?: { message?: string };
+          };
+          if (body.error?.message) detail = body.error.message;
+        } catch {
+          /* keep status fallback */
+        }
+        setError(detail);
         return;
       }
       const blob = await res.blob();
@@ -284,8 +294,8 @@ export default function BudgetDetailPage() {
         title="Budget Details"
         description={
           plan.versionLabel
-            ? `${plan.versionLabel} · ${plan.budgetType}`
-            : `${plan.budgetType} · ${plan.id}`
+            ? `${plan.versionLabel} · ${budgetCategoryLabel(plan.budgetCategory)}`
+            : `${budgetCategoryLabel(plan.budgetCategory)} · ${plan.id}`
         }
         actions={
           <div className="flex flex-wrap gap-2">

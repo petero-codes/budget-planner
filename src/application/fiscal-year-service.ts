@@ -1,8 +1,12 @@
+import "server-only";
+
 import type { FiscalYear, User } from "@/domain/entities";
 import type {
   IAuditLogRepository,
   IFiscalYearRepository,
+  INotificationRepository,
   IUnitOfWork,
+  IUserRepository,
 } from "@/infrastructure/repositories/interfaces";
 import { newId } from "@/infrastructure/id";
 import {
@@ -10,6 +14,21 @@ import {
   AuthorizationService,
 } from "./authorization-service";
 
+/**
+ * FiscalYearService
+ *
+ * Responsibility
+ * --------------
+ * Owns Open / Close / Archive / Set-Current fiscal-year transitions and the
+ * SystemAdmin closure-task notifications when current moves off an Open year.
+ *
+ * Does NOT:
+ * - create budgets (BudgetPlanService) or approve them
+ *
+ * Business Rules: BR-30…32
+ * Workflows: WF-013
+ * Dependencies: AuthorizationService, UnitOfWork, fiscalYears/audits/users/notifications
+ */
 export class FiscalYearServiceError extends Error {
   constructor(
     message: string,
@@ -24,6 +43,8 @@ export class FiscalYearService {
   constructor(
     private readonly fiscalYears: IFiscalYearRepository,
     private readonly audits: IAuditLogRepository,
+    private readonly users: IUserRepository,
+    private readonly notifications: INotificationRepository,
     private readonly authz: AuthorizationService,
     private readonly uow: IUnitOfWork
   ) {}
@@ -93,8 +114,48 @@ export class FiscalYearService {
         afterJson: JSON.stringify({ current: saved.yearLabel }),
         timestamp: new Date().toISOString(),
       });
+      // Moving the "current" flag onto a new year leaves the prior year needing
+      // closure. Raise an actionable task for the FY managers; it auto-resolves
+      // when that year is finally closed.
+      if (previous && previous.status === "Open") {
+        await this.notifyClosureRequired(previous, actor);
+      }
       return saved;
     });
+  }
+
+  /** Raise a "requires closure" task for every active System Administrator. */
+  private async notifyClosureRequired(
+    fy: FiscalYear,
+    actor: User
+  ): Promise<void> {
+    const now = new Date().toISOString();
+    // Avoid duplicate outstanding tasks for the same year.
+    await this.notifications.resolveForEntity("FiscalYear", fy.id, {
+      types: ["FiscalYear"],
+      resolvedBy: actor.id,
+    });
+    const admins = (await this.users.getAll()).filter(
+      (u) => u.active && u.roleCodes.includes("SystemAdmin")
+    );
+    for (const admin of admins) {
+      await this.notifications.create({
+        id: newId(),
+        userId: admin.id,
+        type: "FiscalYear",
+        title: "Financial year requires closure",
+        message: `${actor.name} moved the current year forward. Financial year ${fy.yearLabel} is still Open and should be closed.`,
+        priority: "High",
+        category: "FiscalYear",
+        actionLabel: "Manage Fiscal Years",
+        relatedPlanId: null,
+        entityType: "FiscalYear",
+        entityId: fy.id,
+        targetUrl: "/admin/fiscal-years",
+        isRead: false,
+        createdAt: now,
+      });
+    }
   }
 
   async assertOpenForBudgetWork(fiscalYearId: string): Promise<FiscalYear> {
@@ -254,6 +315,13 @@ export class FiscalYearService {
         afterJson: JSON.stringify({ status: next }),
         timestamp: new Date().toISOString(),
       });
+      // Closing the year completes any outstanding "requires closure" task.
+      if (next === "Closed") {
+        await this.notifications.resolveForEntity("FiscalYear", saved.id, {
+          types: ["FiscalYear"],
+          resolvedBy: actor.id,
+        });
+      }
       return saved;
     });
   }

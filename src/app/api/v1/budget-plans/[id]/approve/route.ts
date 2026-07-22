@@ -3,6 +3,7 @@ import { approvalService, getCurrentUser } from "@/infrastructure/di";
 import { approveSchema, parseBody } from "@/lib/security/api-schemas";
 import { budgetApiError } from "@/lib/security/budget-api-error";
 
+/** POST /api/v1/budget-plans/:id/approve — WF-003 → ApprovalService.approve */
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }

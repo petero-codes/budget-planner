@@ -7,6 +7,9 @@
  * behind a trusted proxy that overwrites these headers.
  */
 
+import "server-only";
+
+
 type HeaderSource = {
   get(name: string): string | null;
 };

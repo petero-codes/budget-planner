@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
-import { apiGet, apiSend } from "@/lib/client-api";
+import { apiGet, apiSend } from "@/lib/client/client-api";
 import type { SupportIssue, User } from "@/domain/entities";
 import { SUPPORT_ISSUE_STATUSES } from "@/domain/support-issue";
 import { useRouter } from "next/navigation";

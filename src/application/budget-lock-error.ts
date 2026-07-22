@@ -1,3 +1,5 @@
+import "server-only";
+
 import { BudgetLockedError } from "@/domain/rules/budget-plan-invariants";
 
 export class BudgetLockedApiError extends BudgetLockedError {

@@ -1,0 +1,43 @@
+name: Docs Guard
+
+# Enforces the Documentation-update matrix (docs/ENGINEERING_GOVERNANCE.md):
+# a PR that changes behavior/schema/config must update the owning docs, and
+# every PR needs a CHANGE_HISTORY.md entry unless explicitly waived with a
+# marker in the PR title/body or a commit message:
+#   [non-functional]        — waive the CHANGE_HISTORY requirement
+#   [no-behavior-change]    — waive WORKFLOWS/BUSINESS_RULES for pure refactors
+#   [no-schema-change]      — waive DATABASE.md for data-only migrations
+#   [no-architecture-change]— waive ENGINEERING_BRAIN.md for trivial config edits
+#   [no-knowledge-change]   — waive KNOWLEDGE_LOG.md when domain change adds no permanent fact
+#   [no-release-note]       — waive the per-branch release note requirement
+# Waivers are visible in the PR and audited in review.
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  docs-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so merge-base resolves
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # tsx only — skip full npm ci (native mssql build not needed for this check)
+      - name: Install tsx
+        run: npm install --no-save tsx@4
+
+      - name: Run docs guard
+        env:
+          DOCS_GUARD_BASE: origin/${{ github.base_ref }}
+          DOCS_GUARD_HEAD: HEAD
+          DOCS_GUARD_BRANCH: ${{ github.head_ref }}
+          DOCS_GUARD_MARKER_TEXT: |
+            ${{ github.event.pull_request.title }}
+            ${{ github.event.pull_request.body }}
+        run: npx tsx scripts/docs-guard/cli.ts

@@ -1,3 +1,5 @@
+import "server-only";
+
 import { ApprovalService } from "@/application/approval-service";
 import { AuthorizationService } from "@/application/authorization-service";
 import { BudgetPlanService } from "@/application/budget-plan-service";
@@ -58,6 +60,10 @@ import {
   MockWorkflowHistoryRepository,
 } from "@/infrastructure/repositories/mock";
 import { readSessionUserId } from "@/infrastructure/session";
+import {
+  resolveRepositoryDriver,
+  type RepositoryDriver,
+} from "@/infrastructure/startup/env";
 
 export type RepositoryBundle = {
   users: IUserAdminRepository;
@@ -130,23 +136,13 @@ function createSqlRepos(): RepositoryBundle {
   };
 }
 
-const driver = (process.env.REPOSITORY_DRIVER ?? "mock").toLowerCase();
-
 /**
- * Fail closed in production if mock is selected — but not during `next build`
- * prerender (NODE_ENV=production with NEXT_PHASE=phase-production-build).
+ * Single source of truth for the repository driver.
+ * Read exactly once. Never instantiate repositories outside this module.
+ * Client bundles always get mock stubs (browser cannot use SQL).
  */
-function assertProductionSqlDriver(): void {
-  if (typeof window !== "undefined") return;
-  if (process.env.NODE_ENV !== "production") return;
-  if (driver === "sql") return;
-  if (process.env.NEXT_PHASE === "phase-production-build") return;
-  throw new Error(
-    "REPOSITORY_DRIVER=sql is required in production. Refusing to start with mock."
-  );
-}
-
-assertProductionSqlDriver();
+const driver: RepositoryDriver =
+  typeof window !== "undefined" ? "mock" : resolveRepositoryDriver();
 
 const bundle: RepositoryBundle =
   typeof window !== "undefined"
@@ -233,6 +229,8 @@ export const financeService = new FinanceService(
 export const fiscalYearService = new FiscalYearService(
   bundle.fiscalYears,
   bundle.audits,
+  bundle.users,
+  bundle.notifications,
   authorizationService,
   bundle.uow
 );
@@ -264,6 +262,7 @@ export const adminUserService = new AdminUserService(
   bundle.costCenters,
   bundle.budgets,
   bundle.audits,
+  bundle.notifications,
   authorizationService,
   bundle.uow
 );
@@ -298,8 +297,8 @@ export const sapComplianceService = new SapComplianceService(
   bundle.sapPackages
 );
 
-export function getRepositoryDriver(): "mock" | "sql" {
-  return driver === "sql" ? "sql" : "mock";
+export function getRepositoryDriver(): RepositoryDriver {
+  return driver;
 }
 
 export const developmentToolkitService = new DevelopmentToolkitService(

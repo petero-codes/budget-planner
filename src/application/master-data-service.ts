@@ -1,3 +1,5 @@
+import "server-only";
+
 import type {
   CostCenter,
   CostCenterSubmissionStatus,
@@ -81,6 +83,20 @@ async function audit(
   });
 }
 
+/**
+ * DepartmentService / CostCenterService / SubmissionStatusService
+ *
+ * Responsibility
+ * --------------
+ * Master-data CRUD for departments, cost centres, and submission-status views.
+ *
+ * Does NOT:
+ * - run approval or finance workflows
+ *
+ * Business Rules: master-data invariants (active CC required for budgets)
+ * Workflows: WF-017
+ * Dependencies: AuthorizationService, UnitOfWork, department/costCenter repos
+ */
 export class DepartmentService {
   constructor(
     private readonly departments: IDepartmentAdminRepository,

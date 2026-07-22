@@ -7,7 +7,7 @@ import { PageShell } from "@/components/shared/page-shell";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { ActionLink, Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
-import { apiGet, apiSend, ApiError } from "@/lib/client-api";
+import { apiGet, apiSend, ApiError } from "@/lib/client/client-api";
 import type {
   AuditLogEntry,
   CostCenter,

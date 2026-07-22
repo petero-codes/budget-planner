@@ -4,6 +4,9 @@
  * Auth session messages stay explicit so the client can redirect to login.
  */
 
+import "server-only";
+
+
 const AUTH_MESSAGES = new Set([
   "Not signed in",
   "Current user not found — sign in again",

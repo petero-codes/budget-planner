@@ -109,7 +109,7 @@ const centers: CostCenter[] = [
 
 function plan(partial: Partial<BudgetPlan> & { id: string; ownerId: string; costCenterId: string }): BudgetPlan {
   return {
-    budgetType: "Primary",
+    budgetCategory: "RECURRENT",
     fiscalYearId: "fy",
     fromPeriod: "2026-07-01",
     toPeriod: "2027-06-30",

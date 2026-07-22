@@ -1,3 +1,5 @@
+import "server-only";
+
 import { NextResponse } from "next/server";
 import { AuthorizationError } from "@/application/authorization-service";
 import { ApprovalServiceError } from "@/application/approval-service";

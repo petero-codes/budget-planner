@@ -4,7 +4,7 @@ import type { BudgetStatus } from "@/domain/value-objects/budget-status";
 export type ExistingActiveBudget = {
   id: string;
   status: BudgetStatus;
-  budgetType: string;
+  budgetCategory: string;
   costCenterId: string;
   costCenterCode: string;
   costCenterName: string;

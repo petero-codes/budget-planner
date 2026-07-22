@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { AuthorizationError } from "@/application/authorization-service";
+import { isSapCsvExportableStatus } from "@/domain/rules/sap-exportable-status";
 import {
   budgetPlanService,
   getCurrentUser,
@@ -19,12 +20,12 @@ export async function GET(
       throw new AuthorizationError("Missing permission: report.export");
     }
     const plan = await budgetPlanService.getById(params.id, user);
-    if (plan.status !== "Approved") {
+    if (!isSapCsvExportableStatus(plan.status)) {
       return NextResponse.json(
         {
           error: {
             code: "INVALID_STATE",
-            message: "Only Approved budgets can be exported",
+            message: "Only Finalized (or legacy Approved) budgets can be exported",
             correlationId,
           },
         },

@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { BudgetPlan } from "@/domain/entities";
 import type { ExistingActiveBudget } from "@/domain/existing-active-budget";
 
@@ -31,7 +33,7 @@ export function existingActiveBudgetFromPlan(
   return {
     id: plan.id,
     status: plan.status,
-    budgetType: plan.budgetType,
+    budgetCategory: plan.budgetCategory,
     costCenterId: plan.costCenterId,
     costCenterCode: meta.costCenterCode,
     costCenterName: meta.costCenterName,

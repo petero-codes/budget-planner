@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
  * CLI: npm run lint:boundaries
- * Fails when Client Components or lib/client import server layers.
+ * Browser Safety Contract (AI-032 v2) — Level 1 + Level 2.
  */
 import fs from "node:fs";
 import path from "node:path";
-import { runArchitectureGuard } from "./rules";
+import { formatViolation, runArchitectureGuard } from "./rules";
 
 const rootDir = path.resolve(__dirname, "../..");
 
@@ -29,15 +29,19 @@ const violations = runArchitectureGuard(
 );
 
 if (violations.length === 0) {
-  console.log("Architecture guard: PASS (no forbidden client/shared imports).");
+  console.log(
+    "Architecture guard (AI-032 v2): PASS — no browser→server reachability."
+  );
   process.exit(0);
 }
 
-console.error("Architecture guard: FAIL\n");
+console.error("Architecture guard (AI-032 v2): FAIL\n");
+console.error("=".repeat(60));
 for (const v of violations) {
-  console.error(`  ${v.file}\n    import "${v.importPath}" — ${v.rule}`);
+  console.error(formatViolation(v));
+  console.error("=".repeat(60));
 }
 console.error(
-  `\n${violations.length} violation(s). See docs/ARCHITECTURAL_INVARIANTS.md (Browser Safety Rule).`
+  `\n${violations.length} violation(s). See docs/ARCHITECTURAL_INVARIANTS.md (AI-032 Browser Safety Contract v2).`
 );
 process.exit(1);

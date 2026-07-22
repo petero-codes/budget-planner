@@ -13,6 +13,10 @@ import { safeInternalMessage } from "@/lib/security/safe-error-message";
 import { isDevelopmentToolkitEnabled } from "@/lib/development-toolkit-access";
 import { registerDevSession } from "@/infrastructure/development/session-registry";
 
+/**
+ * POST /api/v1/auth/login — WF-016
+ * Validates credentials, sets signed session cookie. No budget mutations.
+ */
 export async function POST(req: NextRequest) {
   const correlationId = crypto.randomUUID();
   try {
