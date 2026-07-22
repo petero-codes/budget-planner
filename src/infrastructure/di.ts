@@ -10,7 +10,6 @@ import { FiscalYearService } from "@/application/fiscal-year-service";
 import { SapComplianceService } from "@/application/sap-compliance-service";
 import { AdminUserService } from "@/application/admin-user-service";
 import { DevelopmentToolkitService } from "@/application/development/development-toolkit-service";
-import { SupportIssueService } from "@/application/support-issue-service";
 import {
   CostCenterService,
   DepartmentService,
@@ -33,7 +32,6 @@ import type {
   INotificationRepository,
   ISapPackageRepository,
   ISubmissionStatusRepository,
-  ISupportIssueRepository,
   IUnitOfWork,
   IUserAdminRepository,
   IWorkflowHistoryRepository,
@@ -54,7 +52,6 @@ import {
   MockNotificationRepository,
   MockSapPackageRepository,
   MockSubmissionStatusRepository,
-  MockSupportIssueRepository,
   MockUnitOfWork,
   MockUserRepository,
   MockWorkflowHistoryRepository,
@@ -83,7 +80,6 @@ export type RepositoryBundle = {
   attachments: IBudgetAttachmentRepository;
   attachmentCategories: IBudgetAttachmentCategoryRepository;
   sapPackages: ISapPackageRepository;
-  supportIssues: ISupportIssueRepository;
   uow: IUnitOfWork;
 };
 
@@ -106,7 +102,6 @@ function createMockRepos(): RepositoryBundle {
     attachments: new MockBudgetAttachmentRepository(),
     attachmentCategories: new MockBudgetAttachmentCategoryRepository(),
     sapPackages: new MockSapPackageRepository(),
-    supportIssues: new MockSupportIssueRepository(),
     uow: new MockUnitOfWork(),
   };
 }
@@ -131,7 +126,6 @@ function createSqlRepos(): RepositoryBundle {
     attachments: new sqlRepos.SqlBudgetAttachmentRepository(),
     attachmentCategories: new sqlRepos.SqlBudgetAttachmentCategoryRepository(),
     sapPackages: new sqlRepos.SqlSapPackageRepository(),
-    supportIssues: new sqlRepos.SqlSupportIssueRepository(),
     uow: new sqlRepos.SqlUnitOfWork(),
   };
 }
@@ -169,7 +163,6 @@ export const repos = {
   attachments: bundle.attachments,
   attachmentCategories: bundle.attachmentCategories,
   sapPackages: bundle.sapPackages,
-  supportIssues: bundle.supportIssues,
 };
 
 export const authorizationService = new AuthorizationService(
@@ -305,15 +298,6 @@ export const developmentToolkitService = new DevelopmentToolkitService(
   bundle,
   fiscalYearService,
   getRepositoryDriver,
-  typeof packageJson.version === "string" ? packageJson.version : "0.0.0"
-);
-
-export const supportIssueService = new SupportIssueService(
-  bundle.supportIssues,
-  bundle.users,
-  bundle.notifications,
-  bundle.audits,
-  bundle.uow,
   typeof packageJson.version === "string" ? packageJson.version : "0.0.0"
 );
 

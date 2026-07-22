@@ -540,7 +540,14 @@ export class BudgetPlanService {
       await this.assertNoActiveInLineage(plan.lineageId, plan.id);
     }
 
-    plan.budgetCategory = input.budgetCategory.trim();
+    const budgetCategory = input.budgetCategory.trim();
+    if (!isBudgetCategory(budgetCategory)) {
+      throw new Error(
+        `Only catalog categories (${BUDGET_CATEGORY_CODES.map(budgetCategoryLabel).join(", ")}) may be saved on a draft.`
+      );
+    }
+
+    plan.budgetCategory = budgetCategory;
     plan.fiscalYearId = input.fiscalYearId;
     plan.fromPeriod = input.fromPeriod;
     plan.toPeriod = input.toPeriod;

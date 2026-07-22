@@ -13,8 +13,6 @@
  * Related: docs/DOMAIN_GLOSSARY.md, docs/domain-model.md
  */
 
-import type { BudgetCategoryCode } from "../constants/budget-types";
-
 export interface User {
   id: string;
   name: string;
@@ -113,7 +111,8 @@ export interface BudgetLineage {
   id: string;
   costCenterId: string;
   fiscalYearId: string;
-  originalBudgetCategory: BudgetCategoryCode;
+  /** Catalog code or legacy/demo string (historical rows are not remapped). */
+  originalBudgetCategory: string;
   budgetNumber: string;
   currentVersionId: string | null;
   latestFinalizedVersionId: string | null;
@@ -177,7 +176,8 @@ export interface BudgetPlan {
   ownerId: string;
   costCenterId: string;
   fiscalYearId: string;
-  budgetCategory: BudgetCategoryCode;
+  /** Catalog code or legacy value on historical rows (never silently remapped). */
+  budgetCategory: string;
   fromPeriod: string;
   toPeriod: string;
   /** Free-text notes / justification for this budget. */
@@ -314,51 +314,4 @@ export interface Notification {
   isCleared?: boolean;
   clearedAt?: string | null;
   clearedReason?: string | null;
-}
-
-export type SupportIssueCategory =
-  | "General"
-  | "Bug"
-  | "Budget"
-  | "Approval"
-  | "Finance"
-  | "Performance"
-  | "Security"
-  | "Other";
-
-export type SupportIssuePriority = "Low" | "Medium" | "High";
-
-export type SupportIssueStatus =
-  | "Open"
-  | "Assigned"
-  | "InProgress"
-  | "Resolved"
-  | "Closed";
-
-export interface SupportIssue {
-  id: string;
-  referenceNumber: string;
-  title: string;
-  description: string;
-  category: SupportIssueCategory;
-  priority: SupportIssuePriority;
-  status: SupportIssueStatus;
-  reportedBy: string;
-  assignedTo: string | null;
-  pagePath: string | null;
-  pageLabel: string | null;
-  budgetPlanId: string | null;
-  fiscalYearId: string | null;
-  costCenterId: string | null;
-  browser: string | null;
-  appVersion: string | null;
-  correlationId: string | null;
-  adminNotes: string | null;
-  screenshotFileName: string | null;
-  screenshotContentType: string | null;
-  /** Present only when explicitly loaded for download; omitted from list DTOs. */
-  hasScreenshot: boolean;
-  createdAt: string;
-  updatedAt: string;
-  closedAt: string | null;
 }

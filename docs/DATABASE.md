@@ -49,8 +49,8 @@ All identifiers are `UNIQUEIDENTIFIER` with `NEWSEQUENTIALID()` defaults unless 
 | `BudgetTypeAttachmentRequirements` | mig 007:166 | Required categories per budget type |
 | `BudgetAttachments` | mig 007:176 | In-DB `VARBINARY(MAX)` attachments (ADR-008) |
 | `SapPackages` | mig 007:198 | Frozen SAP export package on finalize |
-| `SupportIssues` | mig 009:6 | In-app support tickets (+ screenshot blob) |
-| `SupportIssueSequence` | mig 009:42 | Per-year counter for support references |
+| `SupportIssues` | mig 009:6 | **Unused (MVP)** — in-app ticketing removed; email support only. Table retained. |
+| `SupportIssueSequence` | mig 009:42 | **Unused (MVP)** — retained with mig 009. |
 
 ---
 

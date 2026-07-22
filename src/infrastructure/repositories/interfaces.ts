@@ -17,7 +17,6 @@ import type {
   Notification,
   Position,
   SapPackage,
-  SupportIssue,
   User,
   WorkflowHistoryEntry,
 } from "@/domain/entities";
@@ -252,19 +251,6 @@ export interface INotificationRepository {
     reason: string;
     clearedAt: string;
   }): Promise<number>;
-}
-
-export interface ISupportIssueRepository {
-  getById(id: string): Promise<SupportIssue | null>;
-  getByReference(referenceNumber: string): Promise<SupportIssue | null>;
-  listMine(userId: string): Promise<SupportIssue[]>;
-  listAll(filters?: { status?: string }): Promise<SupportIssue[]>;
-  /** Allocate next sequence for year and return it (1-based). */
-  nextSequence(yearLabel: number): Promise<number>;
-  save(issue: SupportIssue, screenshot?: Buffer | null): Promise<SupportIssue>;
-  getScreenshot(
-    id: string
-  ): Promise<{ content: Buffer; fileName: string; contentType: string } | null>;
 }
 
 export interface IUnitOfWork {

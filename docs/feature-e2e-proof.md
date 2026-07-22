@@ -146,7 +146,7 @@ If any of **1–10** is **MISSING**, status = **INCOMPLETE**.
 | 7 | none |
 | 8 | Approval, Finance queue/claim/escalation, support issue, fiscal-year closure, admin-user and outcome notifications |
 | 9 | authenticated only |
-| 10 | Click→read→destination + read≠resolve: `tests/unit/notification-read-lifecycle.test.ts`; duplicate-task guard: `tests/unit/notification-dedup.test.ts` + SQL harness check "NEG duplicate active Approval create is a no-op"; archive ownership/resolvedBy: `tests/unit/notification-dismiss.test.ts`; Finance queue→personal→resolved: `tests/unit/finance-audit.test.ts`; support resolution: `tests/unit/support-issue-service.test.ts` |
+| 10 | Click→read→destination + read≠resolve: `tests/unit/notification-read-lifecycle.test.ts`; duplicate-task guard: `tests/unit/notification-dedup.test.ts` + SQL harness check "NEG duplicate active Approval create is a no-op"; archive ownership/resolvedBy: `tests/unit/notification-dismiss.test.ts`; Finance queue→personal→resolved: `tests/unit/finance-audit.test.ts` |
 | 11 | Submit budget → sign in as approver → open bell dropdown → click **Review Budget** → verify URL `/budgets/{id}?action=approve` with the Decision panel focused, and the task remains in To-do as read → approve → verify it leaves To-do and appears in History with `resolvedAt`/`resolvedBy`; repeat Finance claim/finalize (staging matrix) |
 | 12 | Read state changes without completing work; workflow action resolves it; active badge drops; resolved item moves to History; pending work cannot be deleted |
 
