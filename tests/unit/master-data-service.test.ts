@@ -12,6 +12,7 @@ import {
   MockCostCenterRepository,
   MockDepartmentRepository,
   MockFiscalYearRepository,
+  MockNotificationRepository,
   MockUnitOfWork,
   MockUserRepository,
 } from "@/infrastructure/repositories/mock";
@@ -65,6 +66,8 @@ describe("master data services", () => {
     fiscalYearService = new FiscalYearService(
       fiscalYears,
       audits,
+      users,
+      new MockNotificationRepository(),
       authz,
       uow
     );
@@ -123,7 +126,7 @@ describe("master data services", () => {
       ownerId: IDS.edwin,
       costCenterId: IDS.ccSysAdmin,
       fiscalYearId: IDS.fy2027,
-      budgetType: "OPEX",
+      budgetCategory: "CAPEX",
       fromPeriod: "2026-07-01",
       toPeriod: "2027-06-30",
       description: null,

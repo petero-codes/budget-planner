@@ -36,7 +36,7 @@ FiscalYear        — yearLabel, startDate, endDate, status (Open|Closed|Archive
 CostCenterSubmissionStatus — costCenterId, fiscalYearId, status, updatedAt
 BudgetLineage     — costCenterId, fiscalYearId, originalBudgetType, budgetNumber,
                     currentVersionId, latestFinalizedVersionId, isArchived
-BudgetPlan        — ownerId, costCenterId, fiscalYearId, budgetType, fromPeriod, toPeriod,
+BudgetPlan        — ownerId, costCenterId, fiscalYearId, budgetCategory, fromPeriod, toPeriod,
                     description, status, currentApproverId, submittedAt, sapVersion, lines[],
                     version (optimistic concurrency), lineageId, parentBudgetPlanId,
                     lineageRevision, versionLabel, amendmentReason, isArchived,
@@ -47,8 +47,44 @@ ApprovalHistoryEntry — budgetPlanId, performedBy, action, previousStatus, newS
 FinanceQueueClaim — budgetPlanId, claimedBy, claimedAt, releasedAt, isActive
 WorkflowHistoryEntry — budgetVersionId, actor, stage, action, …
 AuditLogEntry     — entity, entityId, action, performedBy, ip, correlationId, before/after JSON, timestamp
-Notification      — userId, type, title, body, relatedPlanId, isRead
+Notification      — userId, type, title, message, priority, category, actionLabel,
+                    entityType, entityId, targetUrl, relatedPlanId, isRead,
+                    readAt, resolvedAt, resolvedBy, expiresAt
 ```
+
+## Notification task lifecycle
+
+Notifications model assigned work, not disposable alerts:
+
+```text
+Created / Unread → Read (still active) → workflow action completed
+                                      → Resolved (history) → Archived
+```
+
+- Clicking sets `readAt` and navigates to `targetUrl`; it does not complete actionable work.
+- Approval, Finance, support, and fiscal-year services set `resolvedAt` and `resolvedBy` when the represented workflow action is completed.
+- Active lists and the header badge include unresolved tasks, whether read or unread.
+- Pending actionable tasks cannot be manually deleted. Only resolved history can be archived.
+- No duplicate active tasks (K-009): repository `create` refuses a second ACTIVE notification for the same recipient + type + plan/entity key. Informational types may repeat; a resolved task never blocks a fresh one.
+- `expiresAt` is optional metadata for future deadline/escalation behavior; expiry does not itself resolve work.
+
+### Notification deep-links
+
+Every notification carries a `targetUrl`; clicking marks it read and navigates there directly. Approval tasks add an `?action=approve` query parameter so the destination page can open the recipient on the exact task rather than a generic page:
+
+```text
+open /budgets/{id}?action=approve
+        ↓
+load the budget
+        ↓
+if action=approve AND the viewer is the pending approver
+        ↓
+scroll the Decision panel into view
+        ↓
+highlight it (ring) so the primary action is unmistakable
+```
+
+The focus/highlight only fires for the current approver with `budget.approve`; for anyone else the parameter is inert (the page renders normally). Behavior lives in `src/app/(portal)/budgets/[id]/page.tsx`; the URL is produced in `src/application/approval-service.ts`.
 
 ## Value objects / enums
 
@@ -58,7 +94,7 @@ Notification      — userId, type, title, body, relatedPlanId, isRead
 - **WorkflowStage** — Draft, Submitted, ManagerReview, GMReview, FinanceQueue, FinanceClaimed, FinanceReturned, FinanceFinalized, Rejected
 - **SubmissionStatus** — NotStarted | InProgress | Submitted | Returned | Approved | Rejected
 - **EscalationStatus** — None | Warning | Escalated
-- **Original budget types** — Primary, Supplementary (amendments are new versions, not a separate type inventing lineage)
+- **Budget categories** — codes `RECURRENT` | `MAJOR` | `CAPEX` with UI labels from `BUDGET_CATEGORY_CATALOG` (amendments are new versions, not a separate type)
 
 ## Budget ownership & multiplicity (user-facing)
 
@@ -67,7 +103,7 @@ Budget Holders often ask whether they may submit more than one budget. Define th
 | Rule | Result |
 |------|--------|
 | One user | Can own **multiple** budgets |
-| One cost centre | Can have **multiple** original budget types (e.g. Primary, Supplementary — and any future catalog entries such as OPEX / CAPEX / Training) |
+| One cost centre | Can have **multiple** catalog categories (`RECURRENT`, `MAJOR`, `CAPEX`) |
 | One original budget type (for a given CC + FY) | Only **one active** version at a time |
 | Finalized budget | **Cannot** be edited, deleted, or overwritten |
 | Changes after finalization | Create an **Amendment** (new version in the **same** lineage) |
@@ -77,15 +113,14 @@ Budget Holders often ask whether they may submit more than one budget. Define th
 
 Peter is responsible for an ICT cost centre. He may submit:
 
-- ICT · FY2027 · Primary ✅  
-- ICT · FY2027 · Supplementary ✅  
-
-(If the original-type catalog later includes OPEX / CAPEX / Training, each is its own lineage the same way.)
+- ICT · FY2027 · Recurrent ✅  
+- ICT · FY2027 · Major ✅  
+- ICT · FY2027 · CAPEX ✅  
 
 **Example — blocked**
 
-- ICT · FY2027 · Primary (Draft)  
-- ICT · FY2027 · Primary (another Draft)  
+- ICT · FY2027 · Recurrent (Draft)  
+- ICT · FY2027 · Recurrent (another Draft)  
 
 …because **only one active budget version** is allowed for each **Cost Centre + Fiscal Year + Original Budget Type** (Budget Lineage).
 
@@ -111,7 +146,7 @@ Do **not** say only “lineage” in requirements or UAT scripts. Prefer:
 
 > Only one active budget version is allowed for each **Cost Centre + Fiscal Year + Original Budget Type** (Budget Lineage).
 
-**Current catalog note:** Implemented original budget types are `Primary` and `Supplementary` (`ORIGINAL_BUDGET_TYPES`). Expanding the catalog does not change the uniqueness rule above.
+**Current catalog note:** Implemented types are `Recurrent`, `Major`, and `CAPEX` (`src/domain/constants/budget-types.ts`). A future `BudgetTypes` lookup table may replace application-level validation (not v1).
 
 ## Invariants
 

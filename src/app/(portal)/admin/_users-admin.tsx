@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ActionLink, Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
-import { apiGet, apiSend, ApiError } from "@/lib/client-api";
+import { apiGet, apiSend, ApiError } from "@/lib/client/client-api";
 import type {
   CostCenter,
   Department,

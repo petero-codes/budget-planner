@@ -122,12 +122,13 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | 2026-07-13 |
+| **Date** | 2026-07-13 (amended 2026-07-18) |
 | **Status** | Accepted |
-| **Decision** | Persistence via `REPOSITORY_DRIVER=mock|sql`. Production uses `sql` against SQL Server (Express supported) through parameterized queries / ODBC (`msnodesqlv8` as configured). Never bypass repositories; never inline SQL from UI. App login should be least-privilege (`app_budget_ops`). |
-| **Why** | Testability (mock) and production safety (SQL + least privilege). |
-| **Alternatives** | ORM from Application layer; always-on SQL only; sa/admin app credentials. |
-| **Consequences** | Ops must set `REPOSITORY_DRIVER=sql` and a valid connection string before production runtime. Unset driver still defaults to `mock` in non-production (`next dev`) for local testability. **Production runtime fail-closes:** `assertProductionSqlDriver()` in `src/infrastructure/di.ts` throws if `NODE_ENV=production` and the driver is not `sql`, except during Next.js production build prerender (`NEXT_PHASE=phase-production-build`). Do not treat “default mock” as an acceptable production residual — the residual is limited to local/dev default and the build-phase exception. |
+| **Decision** | Persistence via `REPOSITORY_DRIVER=mock|sql`. The value is **required** (no silent default). Production uses `sql` only against SQL Server through parameterized queries / ODBC (`msnodesqlv8`). Development may choose `mock` **or** `sql`, never both in one process. All repositories come from one DI singleton in `src/infrastructure/di.ts`. Never bypass repositories; never inline SQL from UI. App login should be least-privilege (`app_budget_ops`). |
+| **Why** | Configuration drift (e.g. login against SQL while `/me`/notifications hit a mismatched schema or masked DB errors as 401) caused recurring outages. Fail-fast + one container removes that class of bug. |
+| **Alternatives** | Silent `?? "mock"` default (rejected — hides misconfiguration); ORM from Application layer; sa/admin app credentials. |
+| **Consequences** | Ops must set `REPOSITORY_DRIVER` explicitly before `next dev` / `next start`. Production refuses non-`sql`. Startup (`src/instrumentation.ts`) validates env + SQL reachability + `dbo.SchemaVersion` vs the migration registry and prints a SYSTEM STARTUP report; pending migrations, missing migration columns, or unusable critical DI services refuse startup. `GET /api/v1/system/database-health` is an authenticated diagnostics endpoint (unauthenticated probes receive bare status; no hostnames, connection strings, or paths). Build prerender (`NEXT_PHASE=phase-production-build`) and unit tests (`vitest` sets `REPOSITORY_DRIVER=mock`) remain the only exceptions. |
+| **Subsystem status** | **Startup Validation — FROZEN (2026-07-18).** Covers `src/instrumentation.ts`, `src/infrastructure/startup/*`, `src/infrastructure/migrations/registry.ts`, the `webpack`/native-driver aliasing in `next.config.js`, and `GET /api/v1/system/database-health`. Future changes accepted **only** for: verified bugs, deployment requirements, schema migrations, or regressions. Not for polish or new diagnostics. |
 
 ---
 

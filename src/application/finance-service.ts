@@ -1,3 +1,5 @@
+import "server-only";
+
 import { computeFinanceDueDates, isOverdue } from "@/domain/rules/finance-sla";
 import { submissionStatusForBudget } from "@/domain/rules/submission-status";
 import type { BudgetPlan, SapPackage, User } from "@/domain/entities";
@@ -36,6 +38,29 @@ import type {
   IGlAccountRepository,
 } from "@/infrastructure/repositories/interfaces";
 
+/**
+ * FinanceService
+ *
+ * Responsibility
+ * --------------
+ * Owns the post-GM finance queue: claim, finalize, return for revision, release,
+ * and SLA escalation. Freezes the SAP package on finalize.
+ *
+ * Does NOT:
+ * - permanently reject a budget (forbidden — BR-24 / K-004)
+ * - walk the manager hierarchy (ApprovalService)
+ * - mutate master data or fiscal years
+ *
+ * Business Rules: BR-24…29
+ * Workflows: WF-006, WF-007, WF-008, WF-009, WF-010 (escalation)
+ * Dependencies: AuthorizationService, UnitOfWork, budgets/claims/sapPackages/
+ *   history/audits/notifications/workflow repositories
+ *
+ * Maintainer notes
+ * ----------------
+ * At most one active claim per plan. Finalize and return require the claimant.
+ * processEscalations is invoked via API (no background scheduler process yet).
+ */
 export class FinanceServiceError extends Error {
   constructor(
     message: string,
@@ -176,13 +201,42 @@ export class FinanceService {
         }),
         timestamp: now,
       });
+      // Collapse the shared queue: once claimed, other Finance users should no
+      // longer see it as outstanding work.
+      await this.notifications.resolveForPlan(plan.id, {
+        types: ["FinanceQueue", "FinanceEscalation"],
+        resolvedBy: actor.id,
+      });
+      // Personal, claimant-only task item.
+      await this.notifications.create({
+        id: newId("notif"),
+        userId: actor.id,
+        type: "FinanceClaim",
+        title: "Budget assigned to you",
+        message: `You claimed ${plan.versionLabel ?? "a budget"} for Finance review. Finalize or release it.`,
+        priority: "High",
+        category: "Finance",
+        actionLabel: "Review Budget",
+        relatedPlanId: plan.id,
+        entityType: "Budget",
+        entityId: plan.id,
+        targetUrl: `/budgets/${plan.id}`,
+        isRead: false,
+        createdAt: now,
+      });
       await this.notifications.create({
         id: newId("notif"),
         userId: plan.ownerId,
         type: "Finance",
         title: "Finance is reviewing your budget",
-        body: `${actor.name} claimed your budget for Finance review.`,
+        message: `${actor.name} claimed your budget for Finance review.`,
+        priority: "Low",
+        category: "Finance",
+        actionLabel: "View Budget",
         relatedPlanId: plan.id,
+        entityType: "Budget",
+        entityId: plan.id,
+        targetUrl: `/budgets/${plan.id}`,
         isRead: false,
         createdAt: now,
       });
@@ -256,6 +310,14 @@ export class FinanceService {
         afterJson: JSON.stringify({ status: "PendingFinanceReview" }),
         timestamp: now,
       });
+      // Released work is outstanding again: drop the claimant's personal item
+      // and re-open the shared Finance queue.
+      await this.notifications.resolveForPlan(plan.id, {
+        types: ["FinanceClaim"],
+        resolvedBy: actor.id,
+      });
+      const financeUsers = listFinanceAdministrators(await this.users.getAll());
+      await notifyFinanceQueue(this.notifications, financeUsers, plan, actor.name);
       await this.recordSubmission(plan);
       return plan;
     });
@@ -390,13 +452,24 @@ export class FinanceService {
         }),
         timestamp: now,
       });
+      // Finance review is over for this recipient — clear their personal task.
+      await this.notifications.resolveForPlan(plan.id, {
+        types: ["FinanceClaim", "FinanceQueue", "FinanceEscalation"],
+        resolvedBy: actor.id,
+      });
       await this.notifications.create({
         id: newId("notif"),
         userId: plan.ownerId,
         type: "Outcome",
         title: "Budget returned by Finance",
-        body: comment,
+        message: comment,
+        priority: "High",
+        category: "Outcome",
+        actionLabel: "Revise Budget",
         relatedPlanId: plan.id,
+        entityType: "Budget",
+        entityId: plan.id,
+        targetUrl: `/budgets/${plan.id}`,
         isRead: false,
         createdAt: now,
       });
@@ -430,8 +503,14 @@ export class FinanceService {
           userId: admin.id,
           type: "FinanceEscalation",
           title: "Overdue Finance review",
-          body: `Budget ${plan.versionLabel ?? plan.id} is overdue for Finance review.`,
+          message: `Budget ${plan.versionLabel ?? plan.id} is overdue for Finance review.`,
+          priority: "Critical",
+          category: "Finance",
+          actionLabel: "Review Finance Item",
           relatedPlanId: plan.id,
+          entityType: "Budget",
+          entityId: plan.id,
+          targetUrl: `/finance?planId=${plan.id}`,
           isRead: false,
           createdAt: now,
         });
@@ -510,6 +589,7 @@ export class FinanceService {
 
     return {
       budgetNumber,
+      budgetCategory: plan.budgetCategory,
       sapReference: buildSapReference(
         fy?.yearLabel ?? 0,
         cc?.code ?? "CC",
@@ -544,6 +624,12 @@ export class FinanceService {
     const managerId = cc?.managerId ?? owner?.managerId ?? null;
     const gm = managerId ? usersMap.get(managerId) : null;
 
+    // Finance work is complete: resolve every outstanding Finance task for this plan.
+    await this.notifications.resolveForPlan(plan.id, {
+      types: ["FinanceClaim", "FinanceQueue", "FinanceEscalation"],
+      resolvedBy: actor.id,
+    });
+
     const recipients = new Set<string>([plan.ownerId]);
     if (managerId) recipients.add(managerId);
     if (gm?.managerId) recipients.add(gm.managerId);
@@ -555,8 +641,14 @@ export class FinanceService {
         userId,
         type: "Outcome",
         title: "Budget finalized",
-        body: `Budget ${plan.versionLabel ?? ""} has been finalized by Finance.`,
+        message: `Budget ${plan.versionLabel ?? ""} has been finalized by Finance.`,
+        priority: "Medium",
+        category: "Outcome",
+        actionLabel: "View Budget",
         relatedPlanId: plan.id,
+        entityType: "Budget",
+        entityId: plan.id,
+        targetUrl: `/budgets/${plan.id}`,
         isRead: false,
         createdAt: now,
       });

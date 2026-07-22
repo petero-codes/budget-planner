@@ -6,22 +6,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@/domain/entities";
 import { ChevronDown } from "lucide-react";
-import { apiSend } from "@/lib/client-api";
+import { apiSend } from "@/lib/client/client-api";
 
-export function UserDropdown({
-  user,
-  positionTitle,
-}: {
-  user: User;
-  positionTitle?: string;
-}) {
+export function UserDropdown({ user }: { user: User }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const isAdmin = user.roleCodes.includes("SystemAdmin");
 
   useEffect(() => setMounted(true), []);
 
@@ -87,13 +80,19 @@ export function UserDropdown({
     }
   }
 
+  const initials = user.name
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("");
+
   const menu =
     open && mounted && pos
       ? createPortal(
           <div
             ref={menuRef}
             role="menu"
-            className="glass-menu-portal w-72"
+            className="glass-menu-portal w-48"
             style={{
               position: "fixed",
               top: pos.top,
@@ -101,15 +100,6 @@ export function UserDropdown({
               zIndex: 9999,
             }}
           >
-            <div className="relative z-[1] select-none border-b border-white/40 px-3.5 py-3">
-              <p className="text-body font-medium text-kengen-navy">{user.name}</p>
-              <p className="text-meta text-neutral-700">{user.email}</p>
-              <p className="mt-1.5 text-meta text-neutral-400">
-                {isAdmin
-                  ? "Administrator session"
-                  : "Signed in via KenGen SSO — your dashboard only"}
-              </p>
-            </div>
             <div className="relative z-[1] space-y-0.5 p-1.5 text-body">
               <Link
                 href="/profile"
@@ -119,6 +109,15 @@ export function UserDropdown({
               >
                 My Profile
               </Link>
+              <Link
+                href="/support"
+                role="menuitem"
+                className="glass-menu-item text-kengen-navy"
+                onClick={close}
+              >
+                Help
+              </Link>
+              <div className="my-1 border-t border-white/40" aria-hidden />
               <button
                 type="button"
                 role="menuitem"
@@ -139,26 +138,18 @@ export function UserDropdown({
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label={`Account menu for ${user.name}`}
         onClick={() => setOpen((v) => !v)}
         className="glass-trigger"
       >
         <span className="relative z-[1] flex h-7 w-7 items-center justify-center rounded-full bg-kengen-navy/90 text-meta text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]">
-          {user.name
-            .split(" ")
-            .map((p) => p[0])
-            .slice(0, 2)
-            .join("")}
+          {initials}
         </span>
-        <span className="relative z-[1] hidden text-left sm:block">
-          <span className="block text-body font-medium text-kengen-navy">
-            {user.name}
-          </span>
-          <span className="block text-meta text-neutral-700">
-            {positionTitle ?? user.roleCodes.join(", ")}
-          </span>
+        <span className="relative z-[1] hidden max-w-[10rem] truncate text-body font-medium text-kengen-navy sm:block">
+          {user.name}
         </span>
         <ChevronDown
-          className={`relative z-[1] h-3.5 w-3.5 text-kengen-navy/70 transition-transform duration-200 ${
+          className={`relative z-[1] h-3.5 w-3.5 shrink-0 text-kengen-navy/70 transition-transform duration-200 ${
             open ? "rotate-180" : "rotate-0"
           }`}
         />

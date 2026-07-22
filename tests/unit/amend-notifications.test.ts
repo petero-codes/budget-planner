@@ -16,7 +16,7 @@ describe("createAmendment notifications", () => {
       id: "lin-amend-notif",
       costCenterId: IDS.ccRelMgmt,
       fiscalYearId: IDS.fy2027,
-      originalBudgetType: "Primary",
+      originalBudgetCategory: "RECURRENT",
       budgetNumber: "FY2027-REL-009",
       currentVersionId: "plan-final-notif",
       latestFinalizedVersionId: "plan-final-notif",
@@ -28,7 +28,7 @@ describe("createAmendment notifications", () => {
       ownerId: IDS.patrick,
       costCenterId: IDS.ccRelMgmt,
       fiscalYearId: IDS.fy2027,
-      budgetType: "Primary",
+      budgetCategory: "RECURRENT",
       fromPeriod: "2026-07-01",
       toPeriod: "2027-06-30",
       description: null,
@@ -73,7 +73,7 @@ describe("createAmendment notifications", () => {
         (n) =>
           n.type === "Amendment" &&
           n.userId === IDS.peter &&
-          n.body.includes("Need additional licenses")
+          n.message.includes("Need additional licenses")
       )
     ).toBe(true);
     expect(

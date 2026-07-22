@@ -6,6 +6,9 @@
  * (e.g. @upstash/ratelimit) without changing call sites.
  */
 
+import "server-only";
+
+
 interface WindowEntry {
   /** Timestamps (ms) of requests inside the current window. */
   hits: number[];

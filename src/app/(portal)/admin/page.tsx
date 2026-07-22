@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Wrench } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
-import { apiGet } from "@/lib/client-api";
+import { apiGet } from "@/lib/client/client-api";
 import type { User } from "@/domain/entities";
 import { UsersAdmin } from "./_users-admin";
 import {

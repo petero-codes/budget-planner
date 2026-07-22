@@ -1,0 +1,73 @@
+---
+description: Read project memory before every task; verify with evidence; append CHANGE_HISTORY after. Operationalizes docs/ENGINEERING_GOVERNANCE.md
+alwaysApply: true
+---
+
+# Engineering governance loop
+
+Project memory lives in the repo, not chat. Full policy:
+`docs/ENGINEERING_GOVERNANCE.md`.
+
+## Before every task
+
+1. Read: `docs/ENGINEERING_GOVERNANCE.md`, `docs/ARCHITECTURE_DECISIONS.md`,
+   `docs/KNOWLEDGE_LOG.md`, `docs/CHANGE_HISTORY.md`, `docs/open-decisions.md`.
+2. Run **Subsystem Impact Analysis** (see `frozen-subsystems.mdc`) and the
+   full **Impact analysis** dimensions (Architecture · Security · RBAC ·
+   Database · Workflow · Notifications · Audit · Performance · Documentation).
+3. **Scope-creep detector:** list the exact files you'll modify and the
+   subsystems you will NOT touch. Adding a file later → stop and explain first.
+
+## Source of truth
+
+Priority when sources disagree: **Code → DB schema → ADRs → governance docs →
+README → user assumptions.**
+
+- **Contradiction Detector (mandatory STOP).** If code disagrees with the
+  Knowledge Log / an ADR / the permission matrix: emit `CONTRADICTION
+  DETECTED` (both sides + file/symbol), STOP, do not overwrite either source,
+  request a user decision or create a reconciliation task. Never silently
+  "fix" architecture.
+- **Proof of Reading.** Don't say "consulted the Knowledge Log" — for each
+  entry checked, show why it is still believed valid:
+  `K-004 — Finance cannot reject. Verified against: <file> · <doc>. Result:
+  Consistent.` A bare `✓ K-004` is insufficient.
+- **Knowledge IDs are immutable.** Changed fact → mark old entry
+  `Superseded by K-NNN`, add a new entry with a new ID. Never rewrite meaning.
+
+## While working
+
+- **Truthfulness gate.** Classify every statement as **Verified** /
+  **Inferred** / **Assumed** — never mixed.
+- **Evidence rule.** Every technical claim needs File · Symbol · Verification ·
+  Result. If it can't be proven from the repo, say **Unknown**.
+- **Never invent** routes, services, files, DB columns, permissions, workflows.
+- **No hallucination words** ("Complete", "Production-ready", "Fully
+  implemented", "Verified") without evidence.
+- **No opportunistic cleanup**, no silent architectural drift (name the ADR if
+  business rules/workflows/permissions/status machines change).
+- If a business rule changes, update the ADR, `domain-model.md`,
+  `state-machines.md`, `permission-matrix.md` (if permissions), and the
+  affected `KNOWLEDGE_LOG.md` entry in the same task.
+
+## After every task
+
+1. **Self-critique pass** as a reviewer who didn't write the code: classify
+   each claim ✅ Verified / ⚠️ Partially Verified / ❌ Unsupported; correct
+   the unsupported ones. For larger tasks, run the Final Consistency Audit.
+2. **Knowledge coverage check:** does this introduce/change a permanent
+   business rule? If yes → Knowledge Log updated? ADR needed? If no → state
+   "No permanent knowledge introduced."
+3. **Append a concise entry to `docs/CHANGE_HISTORY.md`** (newest on top),
+   including a **Rollback** line. The task is not complete until this exists.
+4. End-of-task report: Task · Reason · Files · Architecture · Security ·
+   Database · RBAC · Workflow · Notifications · Audit ·
+   **Business Rules Changed (No | Yes + affected BR ids + reason)** ·
+   Tests · Documentation Updated · **Verification split by level**
+   (Code/Tests/Runtime/Documentation: YES/NO) · **Rollback plan** ·
+   Remaining Risks · Next Task ·
+   **Repository Health** (Architecture Drift / Dead Code / Circular
+   Dependencies / Frozen Violations / Technical Debt) ·
+   **Confidence with reasons** — each rating must cite its basis
+   (code inspected, tests passed, no conflicting ADR/K-entry, runtime
+   assumptions); unjustified confidence = Unknown.

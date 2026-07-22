@@ -2,6 +2,9 @@
  * Server-side auth lookup backed by SQL Server (dbo.Users).
  * Account provisioning is admin-only — no self-registration or token flows here.
  */
+
+import "server-only";
+
 import type { User } from "@/domain/entities";
 import { getPool, sql } from "@/infrastructure/repositories/sql/pool";
 import { mapUser } from "@/infrastructure/repositories/sql/mappers";

@@ -1,3 +1,69 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    {
+      "files": ["src/lib/client/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@/application/*", "@/application"],
+                "message": "Browser Safety: lib/client must not import application layer."
+              },
+              {
+                "group": ["@/infrastructure/*", "@/infrastructure"],
+                "message": "Browser Safety: lib/client must not import infrastructure."
+              },
+              {
+                "group": ["@/lib/server/*", "@/lib/server"],
+                "message": "Browser Safety: lib/client must not import lib/server."
+              },
+              {
+                "group": ["@/lib/security/*", "@/lib/security"],
+                "message": "Browser Safety: lib/client must not import lib/security."
+              },
+              {
+                "group": ["**/package.json"],
+                "message": "Browser Safety: use NEXT_PUBLIC_APP_VERSION or @/lib/shared/app-version."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/lib/shared/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@/application/*", "@/application"],
+                "message": "lib/shared must stay pure — no application imports."
+              },
+              {
+                "group": ["@/infrastructure/*", "@/infrastructure"],
+                "message": "lib/shared must stay pure — no infrastructure imports."
+              },
+              {
+                "group": ["@/lib/client/*", "@/lib/client"],
+                "message": "lib/shared must not depend on browser-only lib/client."
+              },
+              {
+                "group": ["@/lib/server/*", "@/lib/server"],
+                "message": "lib/shared must not depend on lib/server."
+              },
+              {
+                "group": ["**/package.json"],
+                "message": "Use @/lib/shared/app-version instead of package.json."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

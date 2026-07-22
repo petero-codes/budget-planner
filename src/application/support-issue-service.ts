@@ -1,3 +1,5 @@
+import "server-only";
+
 import type {
   SupportIssue,
   SupportIssueCategory,
@@ -20,6 +22,20 @@ import type {
 } from "@/infrastructure/repositories/interfaces";
 import { newId } from "@/infrastructure/id";
 
+/**
+ * SupportIssueService
+ *
+ * Responsibility
+ * --------------
+ * Owns support ticket create / update / resolve and related user notifications.
+ *
+ * Does NOT:
+ * - touch budget approval or finance state
+ *
+ * Business Rules: support invariants in domain/support-issue
+ * Workflows: WF-015
+ * Dependencies: UnitOfWork, supportIssues/users/notifications/audits
+ */
 export class SupportIssueServiceError extends Error {
   constructor(
     message: string,
@@ -149,8 +165,14 @@ export class SupportIssueService {
           userId: admin.id,
           type: "SupportIssue",
           title: "New Issue Reported",
-          body: `${actor.name} · ${saved.pageLabel ?? saved.pagePath ?? "Portal"} · ${saved.title}`,
+          message: `${actor.name} · ${saved.pageLabel ?? saved.pagePath ?? "Portal"} · ${saved.title}`,
+          priority: saved.priority,
+          category: "Support",
+          actionLabel: "Open Issue",
           relatedPlanId: saved.budgetPlanId,
+          entityType: "Issue",
+          entityId: saved.id,
+          targetUrl: "/admin/support",
           isRead: false,
           createdAt: now,
         });
@@ -255,15 +277,27 @@ export class SupportIssueService {
         (nextStatus === "Resolved" || nextStatus === "Closed") &&
         issue.status !== nextStatus
       ) {
+        // The ticket is done: clear the admin queue items for this issue, then
+        // notify the reporter that their issue was resolved.
+        await this.notifications.resolveForEntity("Issue", issue.id, {
+          types: ["SupportIssue"],
+          resolvedBy: actor.id,
+        });
         await this.notifications.create({
           id: newId("notif"),
           userId: issue.reportedBy,
-          type: "SupportIssue",
+          type: "Outcome",
           title: `Issue ${issue.referenceNumber} ${nextStatus}`,
-          body:
+          message:
             saved.adminNotes?.trim() ||
             `Your support issue ${issue.referenceNumber} is now ${nextStatus}.`,
+          priority: "Medium",
+          category: "Outcome",
+          actionLabel: "View Issue",
           relatedPlanId: issue.budgetPlanId,
+          entityType: "Issue",
+          entityId: issue.id,
+          targetUrl: "/support",
           isRead: false,
           createdAt: now,
         });

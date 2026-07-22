@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { financeService, getCurrentUser } from "@/infrastructure/di";
 import { budgetApiError } from "@/lib/security/budget-api-error";
 
-/** Release a claim so the budget returns to the Finance queue. */
+/** POST /api/v1/budget-plans/:id/finance/release — WF-009 → FinanceService.release */
 export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } }

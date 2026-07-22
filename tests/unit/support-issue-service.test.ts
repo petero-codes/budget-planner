@@ -78,9 +78,12 @@ describe("SupportIssueService", () => {
     });
     expect(updated.status).toBe("Resolved");
     expect(updated.closedAt).toBeTruthy();
+    // The reporter's resolution message is an informational Outcome that
+    // navigates back to their support list.
     const userNotifs = mockStore.notifications.filter(
-      (n) => n.userId === IDS.peter && n.type === "SupportIssue"
+      (n) => n.userId === IDS.peter && n.type === "Outcome"
     );
     expect(userNotifs.some((n) => n.title.includes("Resolved"))).toBe(true);
+    expect(userNotifs.every((n) => n.targetUrl === "/support")).toBe(true);
   });
 });

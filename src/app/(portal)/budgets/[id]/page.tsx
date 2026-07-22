@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Check,
   Download,
@@ -23,8 +23,9 @@ import type {
   User,
   WorkflowHistoryEntry,
 } from "@/domain/entities";
-import type { VersionCompareResult } from "@/application/version-compare-service";
+import type { VersionCompareResult } from "@/lib/shared/version-compare-types";
 import { formatCurrency } from "@/lib/utils";
+import { budgetCategoryLabel } from "@/domain/constants/budget-types";
 import { latestApprovalOutcome } from "@/domain/rules/approval-outcome";
 import { resolveOrgRole } from "@/domain/rules/org-role";
 import { reviewStageLabel } from "@/domain/value-objects/budget-status";
@@ -41,6 +42,11 @@ function fmtDate(iso: string): string {
 export default function BudgetDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Notification deep-link (?action=approve): focus the Decision panel so the
+  // approver lands on the exact task, not just the page.
+  const deepLinkAction = searchParams?.get("action") ?? null;
+  const decisionRef = useRef<HTMLDivElement>(null);
   const id = String(params?.id ?? "");
   const [plan, setPlan] = useState<BudgetPlan | null>(null);
   const [history, setHistory] = useState<ApprovalHistoryEntry[]>([]);
@@ -104,6 +110,19 @@ export default function BudgetDetailPage() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  const deepLinkFocused = useRef(false);
+  useEffect(() => {
+    if (deepLinkFocused.current || deepLinkAction !== "approve") return;
+    if (!plan || !user) return;
+    const isPendingApprover =
+      plan.status === "InApproval" &&
+      plan.currentApproverId === user.id &&
+      user.permissionCodes.includes("budget.approve");
+    if (!isPendingApprover) return;
+    deepLinkFocused.current = true;
+    decisionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [deepLinkAction, plan, user]);
 
   async function onApprove() {
     if (!plan) return;
@@ -205,7 +224,16 @@ export default function BudgetDetailPage() {
         cache: "no-store",
       });
       if (!res.ok) {
-        setError(`Export failed (${res.status})`);
+        let detail = `Export failed (${res.status})`;
+        try {
+          const body = (await res.json()) as {
+            error?: { message?: string };
+          };
+          if (body.error?.message) detail = body.error.message;
+        } catch {
+          /* keep status fallback */
+        }
+        setError(detail);
         return;
       }
       const blob = await res.blob();
@@ -266,8 +294,8 @@ export default function BudgetDetailPage() {
         title="Budget Details"
         description={
           plan.versionLabel
-            ? `${plan.versionLabel} · ${plan.budgetType}`
-            : `${plan.budgetType} · ${plan.id}`
+            ? `${plan.versionLabel} · ${budgetCategoryLabel(plan.budgetCategory)}`
+            : `${budgetCategoryLabel(plan.budgetCategory)} · ${plan.id}`
         }
         actions={
           <div className="flex flex-wrap gap-2">
@@ -563,7 +591,14 @@ export default function BudgetDetailPage() {
       ) : null}
 
       {canReview ? (
-        <div className="rounded border border-neutral-400/30 bg-white p-3">
+        <div
+          ref={decisionRef}
+          className={`rounded border bg-white p-3 ${
+            deepLinkAction === "approve"
+              ? "border-kengen-green ring-2 ring-kengen-green/30"
+              : "border-neutral-400/30"
+          }`}
+        >
           <p className="mb-2 text-sm font-medium text-kengen-navy">Decision</p>
           <label className="mb-3 block text-meta">
             Comment

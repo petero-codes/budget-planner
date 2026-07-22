@@ -38,8 +38,31 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  env: {
+    NEXT_PUBLIC_APP_VERSION: require("./package.json").version,
+  },
   experimental: {
     serverComponentsExternalPackages: ["mssql", "msnodesqlv8"],
+    instrumentationHook: true,
+  },
+  /**
+   * msnodesqlv8 ships a native .node binary. Webpack must never pull it into
+   * a browser bundle or the edge compilation (middleware forces an edge
+   * compiler, which also compiles instrumentation.ts). DI uses mock repos in
+   * the browser and instrumentation early-returns on edge, so aliasing the
+   * driver to an empty module is safe in both.
+   */
+  webpack: (config, { isServer, nextRuntime }) => {
+    if (!isServer || nextRuntime === "edge") {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        mssql: false,
+        "mssql/msnodesqlv8": false,
+        msnodesqlv8: false,
+        child_process: false,
+      };
+    }
+    return config;
   },
   async headers() {
     return [

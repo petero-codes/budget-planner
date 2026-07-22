@@ -9,8 +9,8 @@ import { SkeletonTable } from "@/components/shared/skeleton-table";
 import { ActionLink } from "@/components/ui/button";
 import { apiGet } from "@/lib/client-api";
 import type { BudgetPlan, CostCenter, User } from "@/domain/entities";
-import { formatCurrency } from "@/lib/utils";
-import { cn } from "@/lib/utils";
+import { budgetCategoryLabel } from "@/domain/constants/budget-types";
+import { cn, formatCurrency } from "@/lib/utils";
 
 type Tab = "pending" | "returned" | "approved" | "rejected";
 
@@ -162,7 +162,7 @@ export default function ApprovalsPage() {
                     <td className="px-2 py-1.5">
                       {names[plan.ownerId] ?? plan.ownerId}
                     </td>
-                    <td className="px-2 py-1.5">{plan.budgetType}</td>
+                    <td className="px-2 py-1.5">{budgetCategoryLabel(plan.budgetCategory)}</td>
                     <td className="px-2 py-1.5">{formatCurrency(total)}</td>
                     <td className="px-2 py-1.5 text-meta">
                       {new Date(plan.updatedAt).toLocaleDateString()}

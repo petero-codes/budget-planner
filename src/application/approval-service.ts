@@ -1,3 +1,5 @@
+import "server-only";
+
 import { buildApprovalRoute } from "@/domain/rules/build-approval-route";
 import { computeFinanceDueDates } from "@/domain/rules/finance-sla";
 import {
@@ -21,6 +23,7 @@ import type {
 } from "@/infrastructure/repositories/interfaces";
 import { newId } from "@/infrastructure/id";
 import { submissionStatusForBudget } from "@/domain/rules/submission-status";
+import { budgetCategoryLabel } from "@/domain/constants/budget-types";
 import {
   AuthorizationError,
   AuthorizationService,
@@ -35,6 +38,29 @@ import {
   WorkflowRecorder,
 } from "./workflow-recorder";
 
+/**
+ * ApprovalService
+ *
+ * Responsibility
+ * --------------
+ * Owns budget submission into the hierarchy, each approval step, return for
+ * revision, and GM-only permanent reject. Builds the route from Users.managerId.
+ *
+ * Does NOT:
+ * - claim / finalize / release finance work (FinanceService)
+ * - edit budget lines (BudgetPlanService)
+ * - send email (in-app notifications only)
+ *
+ * Business Rules: BR-02, BR-05, BR-14…23
+ * Workflows: WF-002, WF-003, WF-004, WF-005
+ * Dependencies: AuthorizationService, UnitOfWork, users/budgets/routes/history/
+ *   audits/notifications/workflow/submissionStatus repositories
+ *
+ * Maintainer notes
+ * ----------------
+ * Manager/GM approve resolves the actor's approval task before creating the
+ * next-step task. Finance never permanently rejects (see FinanceService).
+ */
 export class ApprovalServiceError extends Error {
   constructor(
     message: string,
@@ -154,7 +180,7 @@ export class ApprovalService {
       const duplicate = await this.budgets.findActiveDuplicate(
         plan.costCenterId,
         plan.fiscalYearId,
-        plan.budgetType
+        plan.budgetCategory
       );
       if (duplicate && duplicate.id !== plan.id) {
         const [dupCc, dupFy, owner] = await Promise.all([
@@ -165,7 +191,7 @@ export class ApprovalService {
         const costCenterCode = dupCc?.code ?? duplicate.costCenterId;
         const yearLabel = dupFy?.yearLabel ?? 0;
         throw new ActiveBudgetConflictError(
-          `An active ${duplicate.budgetType} budget already exists for Cost Center ${costCenterCode} for FY${yearLabel}.`,
+          `An active ${budgetCategoryLabel(duplicate.budgetCategory)} budget already exists for Cost Center ${costCenterCode} for FY${yearLabel}.`,
           existingActiveBudgetFromPlan(duplicate, {
             costCenterCode,
             costCenterName: dupCc?.name ?? "",
@@ -276,10 +302,17 @@ export class ApprovalService {
         title: isResubmit
           ? "Budget resubmitted for your approval"
           : "Budget awaiting your approval",
-        body: isResubmit
+        message: isResubmit
           ? `${actor.name} resubmitted a budget after revision.`
           : `${actor.name} submitted a budget for your review.`,
+        priority: "High",
+        category: "Approval",
+        actionLabel: "Review Budget",
         relatedPlanId: plan.id,
+        entityType: "Budget",
+        entityId: plan.id,
+        // Deep-link: the budget page focuses its Decision panel for ?action=approve.
+        targetUrl: `/budgets/${plan.id}?action=approve`,
         isRead: false,
         createdAt: now,
       });
@@ -314,9 +347,10 @@ export class ApprovalService {
         .filter((r) => r.status === "Pending" && r.sequence > current.sequence)
         .sort((a, b) => a.sequence - b.sequence)[0];
 
-      await this.notifications.dismissForPlan(plan.id, {
+      await this.notifications.resolveForPlan(plan.id, {
         userId: actor.id,
         types: ["Approval"],
+        resolvedBy: actor.id,
       });
 
       if (next) {
@@ -360,8 +394,14 @@ export class ApprovalService {
           userId: next.approverId,
           type: "Approval",
           title: "Budget awaiting your approval",
-          body: `A budget approved by ${actor.name} is ready for your review.`,
+          message: `A budget approved by ${actor.name} is ready for your review.`,
+          priority: "High",
+          category: "Approval",
+          actionLabel: "Review Budget",
           relatedPlanId: plan.id,
+          entityType: "Budget",
+          entityId: plan.id,
+          targetUrl: `/budgets/${plan.id}?action=approve`,
           isRead: false,
           createdAt: now,
         });
@@ -371,8 +411,9 @@ export class ApprovalService {
         await this.enterFinanceQueue(plan, actor, correlationId, now);
         plan.updatedAt = now;
         Object.assign(plan, await this.budgets.save(plan));
-        await this.notifications.dismissForPlan(plan.id, {
+        await this.notifications.resolveForPlan(plan.id, {
           types: ["Approval"],
+          resolvedBy: actor.id,
         });
         await this.history.append({
           id: newId("hist"),
@@ -464,8 +505,9 @@ export class ApprovalService {
       plan.updatedAt = now;
       Object.assign(plan, await this.budgets.save(plan));
 
-      await this.notifications.dismissForPlan(plan.id, {
+      await this.notifications.resolveForPlan(plan.id, {
         types: ["Approval"],
+        resolvedBy: actor.id,
       });
 
       await this.history.append({
@@ -509,8 +551,14 @@ export class ApprovalService {
         userId: plan.ownerId,
         type: "Outcome",
         title: "Budget returned",
-        body: comment,
+        message: comment,
+        priority: "Medium",
+        category: "Outcome",
+        actionLabel: "View Budget",
         relatedPlanId: plan.id,
+        entityType: "Budget",
+        entityId: plan.id,
+        targetUrl: `/budgets/${plan.id}`,
         isRead: false,
         createdAt: now,
       });
@@ -562,8 +610,9 @@ export class ApprovalService {
       plan.updatedAt = now;
       Object.assign(plan, await this.budgets.save(plan));
 
-      await this.notifications.dismissForPlan(plan.id, {
+      await this.notifications.resolveForPlan(plan.id, {
         types: ["Approval"],
+        resolvedBy: actor.id,
       });
 
       await this.history.append({
@@ -600,8 +649,14 @@ export class ApprovalService {
         userId: plan.ownerId,
         type: "Outcome",
         title: "Budget rejected",
-        body: comment,
+        message: comment,
+        priority: "High",
+        category: "Outcome",
+        actionLabel: "View Budget",
         relatedPlanId: plan.id,
+        entityType: "Budget",
+        entityId: plan.id,
+        targetUrl: `/budgets/${plan.id}`,
         isRead: false,
         createdAt: now,
       });

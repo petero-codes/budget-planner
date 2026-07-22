@@ -8,7 +8,7 @@ import {
   SUPPORT_ISSUE_CATEGORIES,
   SUPPORT_ISSUE_PRIORITIES,
 } from "@/domain/support-issue";
-import packageJson from "../../../package.json";
+import { APP_VERSION } from "@/lib/shared/app-version";
 
 function pageLabelFromPath(pathname: string): string {
   if (pathname.startsWith("/budgets/") && pathname !== "/budgets/create") {
@@ -73,7 +73,7 @@ export function ReportIssueModal({ open, onClose, context }: Props) {
       pagePath: pathname,
       pageLabel: pageLabelFromPath(pathname),
       browser: detectBrowser(),
-      appVersion: packageJson.version ?? "0.0.0",
+      appVersion: APP_VERSION,
       budgetPlanId: context?.budgetPlanId ?? null,
       fiscalYearId: context?.fiscalYearId ?? null,
       costCenterId: context?.costCenterId ?? null,

@@ -17,6 +17,7 @@ import { GmDashboard } from "@/components/dashboard/gm-dashboard";
 import { ActionLink } from "@/components/ui/button";
 import { apiGet } from "@/lib/client-api";
 import type { BudgetPlan, User } from "@/domain/entities";
+import { budgetCategoryLabel } from "@/domain/constants/budget-types";
 import { formatCurrency } from "@/lib/utils";
 
 type StatusCounts = {
@@ -109,7 +110,7 @@ export default function HomePage() {
       const cc = dash.summaries.find((s) => s.costCenterId === p.costCenterId);
       return (
         p.status.toLowerCase().includes(term) ||
-        p.budgetType.toLowerCase().includes(term) ||
+        p.budgetCategory.toLowerCase().includes(term) ||
         (cc?.name.toLowerCase().includes(term) ?? false) ||
         (cc?.code.toLowerCase().includes(term) ?? false)
       );
@@ -248,7 +249,7 @@ export default function HomePage() {
                         <td className="px-2 py-1.5">
                           {cc?.name ?? p.costCenterId}
                         </td>
-                        <td className="px-2 py-1.5">{p.budgetType}</td>
+                        <td className="px-2 py-1.5">{budgetCategoryLabel(p.budgetCategory)}</td>
                         <td className="px-2 py-1.5">
                           <StatusChip status={p.status} />
                         </td>
@@ -292,7 +293,7 @@ export default function HomePage() {
                                 href={`/budgets/${p.id}`}
                                 variant="warning"
                                 icon={ClipboardCheck}
-                                aria-label={`Review budget ${p.budgetType}`}
+                                aria-label={`Review budget ${budgetCategoryLabel(p.budgetCategory)}`}
                               >
                                 Review
                               </ActionLink>
@@ -301,7 +302,7 @@ export default function HomePage() {
                                 href={`/budgets/${p.id}`}
                                 variant="secondary"
                                 icon={Eye}
-                                aria-label={`View budget ${p.budgetType}`}
+                                aria-label={`View budget ${budgetCategoryLabel(p.budgetCategory)}`}
                               >
                                 View
                               </ActionLink>

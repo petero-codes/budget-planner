@@ -1,23 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Bell, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import type { FiscalYear, Position, User } from "@/domain/entities";
 import { UserDropdown } from "./user-dropdown";
+import { NotificationBell } from "./notification-bell";
 import { GlassSelect } from "@/components/ui/glass-select";
-import { apiGet } from "@/lib/client-api";
+import { apiGet } from "@/lib/client/client-api";
 
 export function Header({
   user,
-  position,
   notificationCount,
+  onNotificationsChanged,
   navOpen,
   onMenuClick,
 }: {
   user: User;
   position?: Position | null;
   notificationCount: number;
+  onNotificationsChanged: () => void;
   navOpen: boolean;
   onMenuClick: () => void;
 }) {
@@ -59,9 +60,6 @@ export function Header({
           <p className="truncate text-sm font-semibold text-kengen-navy">
             ICT Budgeting Portal
           </p>
-          <p className="hidden truncate text-meta text-neutral-700 sm:block">
-            KenGen · Internal
-          </p>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
@@ -83,19 +81,11 @@ export function Header({
             />
           </div>
         ) : null}
-        <Link
-          href="/notifications"
-          className="glass-trigger relative !rounded-xl p-1.5 text-kengen-navy"
-          aria-label="Notifications"
-        >
-          <Bell className="relative z-[1] h-4 w-4" />
-          {notificationCount > 0 ? (
-            <span className="absolute -right-0.5 -top-0.5 z-[2] flex h-4 min-w-4 items-center justify-center rounded-full bg-kengen-red px-1 text-[10px] text-white">
-              {notificationCount}
-            </span>
-          ) : null}
-        </Link>
-        <UserDropdown user={user} positionTitle={position?.title} />
+        <NotificationBell
+          count={notificationCount}
+          onChanged={onNotificationsChanged}
+        />
+        <UserDropdown user={user} />
       </div>
     </header>
   );

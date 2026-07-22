@@ -1,3 +1,5 @@
+import "server-only";
+
 import type {
   ApprovalHistoryEntry,
   BudgetPlan,
@@ -77,6 +79,19 @@ function isApprovedAmountStatus(status: BudgetPlan["status"]): boolean {
   return status === "Finalized" || status === "Approved";
 }
 
+/**
+ * ExecutiveService
+ *
+ * Responsibility
+ * --------------
+ * Read-only executive / management reporting over budgets and org structure.
+ *
+ * Does NOT:
+ * - mutate workflow state
+ *
+ * Workflows: read-only reporting (see WF-018 adjacent)
+ * Dependencies: AuthorizationService, budget/org repositories
+ */
 export class ExecutiveService {
   constructor(
     private readonly budgets: IBudgetPlanRepository,

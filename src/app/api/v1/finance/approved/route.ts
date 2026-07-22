@@ -38,6 +38,7 @@ export async function GET() {
         return {
           planId: p.id,
           budgetNumber: p.versionLabel,
+          budgetCategory: p.budgetCategory,
           status: p.status,
           employee: userMap.get(p.ownerId)?.name ?? p.ownerId,
           department: cc ? (deptMap.get(cc.departmentId)?.name ?? "—") : "—",

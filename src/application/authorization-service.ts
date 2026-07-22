@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { PermissionCode } from "@/domain/value-objects/budget-status";
 import type { BudgetPlan, CostCenter, User } from "@/domain/entities";
 import type {
@@ -11,6 +13,22 @@ import { resolveOrgRole as resolveOrgRoleFromUser, type OrgRole } from "@/domain
 export type { OrgRole };
 export { resolveOrgRoleFromUser as resolveOrgRole };
 
+/**
+ * AuthorizationService
+ *
+ * Responsibility
+ * --------------
+ * Server-side permission checks and org-role resolution used by every mutating
+ * application service. UI checks are never trusted.
+ *
+ * Does NOT:
+ * - change budget status or write workflow history
+ * - own session cookies (infrastructure/session)
+ *
+ * Business Rules: BR-38+
+ * Workflows: cross-cutting (called by WF-001…018 mutators)
+ * Dependencies: users, costCenters, audits repositories
+ */
 export class AuthorizationError extends Error {
   constructor(message: string) {
     super(message);

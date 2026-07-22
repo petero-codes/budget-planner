@@ -1,0 +1,78 @@
+---
+description: Subsystem governance — run Subsystem Impact Analysis before any change; protect FROZEN subsystems; require evidence and scoped edits
+alwaysApply: true
+---
+
+# Subsystem governance
+
+Treat subsystem ownership as part of the process, not something to remember
+ad hoc. Every task starts with impact analysis and ends (if frozen code was
+touched) with verification.
+
+## 1. Subsystem Impact Analysis (do this FIRST, every task)
+
+Before editing anything, output:
+
+```
+Subsystem Impact Analysis
+Affected:
+- <subsystem> (Active|Frozen)
+Not Affected:
+- <subsystem> (Frozen)   # list the frozen ones you confirmed are untouched
+Frozen subsystem modifications required:
+- None            # or: <subsystem> + Reason + Evidence
+```
+
+## 2. Change scope first
+
+List the exact files you intend to modify and why, before editing. If you
+later need a file not on that list, **stop**, explain why, then continue.
+
+## 3. Frozen subsystems
+
+Modify frozen code **only** for: (1) a **verified bug**, (2) a **deployment
+requirement**, (3) a **schema migration**, or (4) a **regression**. Polish,
+refactors, extra diagnostics, or "this might be cleaner" never qualify.
+
+- **Frozen dependency rule.** If a feature depends on a frozen subsystem,
+  the default is to **build around it**, not modify it. Only if that is
+  impossible, request permission to touch the frozen code.
+- **Bug / regression evidence required.** "Verified bug" and "regression"
+  demand evidence — a failing test, stack trace, reproducible steps, or log.
+  Suspicion or aesthetics do not qualify.
+
+## 4. Discipline on every change
+
+- **No opportunistic cleanup.** Do only the task. Do not rename variables,
+  reformat unrelated files, move imports, or edit unrelated docs.
+- **No silent architectural drift.** Do not change business rules,
+  workflows, permissions, status machines, or ADR-backed behavior without
+  naming the affected ADR / governance rule in your response.
+
+## 5. Post-change verification (only when frozen code was touched)
+
+End the task by stating: what changed; which of the four justifications it
+met; how it was verified; and whether the subsystem remains frozen.
+
+## Subsystem registry
+
+Source of truth for freeze status. New freezes must be recorded here **and**
+in the relevant ADR. `Frozen` = protected now. `Active` = normal changes
+allowed. "planned freeze" is informational, not yet enforced.
+
+| Subsystem | Status | Scope / notes |
+|-----------|--------|---------------|
+| Startup Validation | **Frozen** 2026-07-18 | `src/instrumentation.ts`, `src/infrastructure/startup/**`, `src/infrastructure/migrations/registry.ts`, the webpack/native-driver alias block in `next.config.js`, `src/app/api/v1/system/database-health/route.ts`. See ADR-009 "Subsystem status". |
+| Authentication & Session Security | Active | Planned freeze once complete. |
+| Approval Engine | Active | Planned freeze once UAT passes. |
+| Finance Workflow | Active | Planned freeze once UAT passes. |
+| Master Data | Active | Planned freeze after validation. |
+| SAP Export | Active | Planned freeze after validation. |
+| Notification Engine | Active | — |
+| Development Toolkit | Active | — |
+| Reports | Active | — |
+
+### In-scope exceptions
+
+- A schema migration touching a frozen subsystem still updates the migration
+  registry and `EXPECTED_SCHEMA_VERSION` together — in-scope, not a violation.

@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { AuthorizationError } from "@/application/authorization-service";
 import {
+  addToBudgetCategorySummary,
+  addToLegacyBudgetCategorySummary,
+  emptyBudgetCategorySummary,
+  emptyLegacyBudgetCategorySummary,
+  legacyBudgetCategoryDistribution,
+} from "@/domain/constants/budget-types";
+import {
   budgetPlanService,
   getCurrentUser,
   repos,
@@ -38,10 +45,14 @@ export async function GET() {
     const byStatus: Record<string, number> = {};
     const byYear: Record<string, { count: number; amount: number }> = {};
     const byCostCenter: Record<string, { count: number; amount: number }> = {};
+    const byBudgetCategory = emptyBudgetCategorySummary();
+    const legacySummary = emptyLegacyBudgetCategorySummary();
 
     for (const p of plans) {
       byStatus[p.status] = (byStatus[p.status] ?? 0) + 1;
       const amount = p.lines.reduce((a, l) => a + l.amount, 0);
+      addToBudgetCategorySummary(byBudgetCategory, p.budgetCategory, amount);
+      addToLegacyBudgetCategorySummary(legacySummary, p.budgetCategory, amount);
       const fy = yearMap.get(p.fiscalYearId);
       const yKey = String(fy?.yearLabel ?? p.fiscalYearId);
       byYear[yKey] = byYear[yKey] ?? { count: 0, amount: 0 };
@@ -75,6 +86,8 @@ export async function GET() {
         },
         byYear,
         byCostCenter,
+        byBudgetCategory,
+        byLegacyBudgetCategory: legacyBudgetCategoryDistribution(legacySummary),
         years,
       },
       correlationId,

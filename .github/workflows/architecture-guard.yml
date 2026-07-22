@@ -1,0 +1,60 @@
+name: Architecture Guard
+
+# Browser Safety Rule — block client→server layer leakage before merge.
+# Runs boundary lint, dependency-cruiser, and (on PR) post-build bundle scan.
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  boundaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        # msnodesqlv8 native ODBC build is not required for lint/boundary checks (mock driver).
+        run: |
+          npm ci --ignore-scripts
+          node scripts/patch-next-tsconfig-path.js
+
+      - name: ESLint (lib/client + lib/shared + package.json ban)
+        run: npm run lint
+
+      - name: Architecture boundary scan (use client modules)
+        run: npm run lint:boundaries
+
+      - name: Dependency graph validation
+        run: npm run lint:deps
+
+  browser-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        # msnodesqlv8 native ODBC build is not required for lint/boundary checks (mock driver).
+        run: |
+          npm ci --ignore-scripts
+          node scripts/patch-next-tsconfig-path.js
+
+      - name: Production build
+        run: npm run build
+        env:
+          REPOSITORY_DRIVER: mock
+          SESSION_SECRET: ci-browser-safety-check-secret-min-32-chars
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Scan client bundles for Node/SQL native modules
+        run: npm run lint:browser

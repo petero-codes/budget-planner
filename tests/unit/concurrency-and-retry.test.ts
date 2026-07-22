@@ -20,7 +20,7 @@ describe("Optimistic concurrency on BudgetPlan.save", () => {
   it("rejects a stale-version save with ConcurrencyConflictError", async () => {
     const patrick = (await repos.users.getById(IDS.patrick))!;
     const plan = await budgetPlanService.createDraft(patrick, {
-      budgetType: "Primary",
+      budgetCategory: "RECURRENT",
       fiscalYearId: IDS.fy2027,
       fromPeriod: "2026-07-01",
       toPeriod: "2027-06-30",
@@ -47,7 +47,7 @@ describe("Optimistic concurrency on BudgetPlan.save", () => {
   it("concurrent approve calls: exactly one succeeds, one conflicts", async () => {
     const patrick = (await repos.users.getById(IDS.patrick))!;
     const plan = await budgetPlanService.createDraft(patrick, {
-      budgetType: "Primary",
+      budgetCategory: "RECURRENT",
       fiscalYearId: IDS.fy2027,
       fromPeriod: "2026-07-01",
       toPeriod: "2027-06-30",

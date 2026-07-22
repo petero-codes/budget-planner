@@ -11,6 +11,7 @@ import {
   positions,
   users,
 } from "../src/infrastructure/repositories/mock/seed";
+import { withImmutabilityTriggersDisabled } from "./lib/test-database-cleaner";
 
 const connectionString = [
   "Driver={ODBC Driver 17 for SQL Server}",
@@ -111,30 +112,30 @@ async function main() {
 
   try {
     console.log("Clearing transactional + reference data…");
-    await req().query(`
-      DISABLE TRIGGER dbo.TR_AuditLogs_NoUpdateDelete ON dbo.AuditLogs;
-      DISABLE TRIGGER dbo.TR_ApprovalHistory_NoUpdateDelete ON dbo.ApprovalHistory;
-      DELETE FROM dbo.Notifications;
-      DELETE FROM dbo.AuditLogs;
-      DELETE FROM dbo.ApprovalHistory;
-      DELETE FROM dbo.ApprovalRoute;
-      DELETE FROM dbo.CostCenterSubmissionStatus;
-      DELETE FROM dbo.BudgetItems;
-      DELETE FROM dbo.BudgetPlans;
-      DELETE FROM dbo.AuthTokens;
-      DELETE FROM dbo.UserRoles;
-      DELETE FROM dbo.RolePermissions;
-      DELETE FROM dbo.Users;
-      DELETE FROM dbo.Roles;
-      DELETE FROM dbo.Permissions;
-      DELETE FROM dbo.GlAccounts;
-      DELETE FROM dbo.FiscalYears;
-      DELETE FROM dbo.CostCenters;
-      DELETE FROM dbo.Positions;
-      DELETE FROM dbo.Departments;
-      ENABLE TRIGGER dbo.TR_AuditLogs_NoUpdateDelete ON dbo.AuditLogs;
-      ENABLE TRIGGER dbo.TR_ApprovalHistory_NoUpdateDelete ON dbo.ApprovalHistory;
-    `);
+    // Trigger disable/enable is delegated to TestDatabaseCleaner — the sole
+    // authorized location for that operation in this repository.
+    await withImmutabilityTriggersDisabled(pool, async () => {
+      await req().query(`
+        DELETE FROM dbo.Notifications;
+        DELETE FROM dbo.AuditLogs;
+        DELETE FROM dbo.ApprovalHistory;
+        DELETE FROM dbo.ApprovalRoute;
+        DELETE FROM dbo.CostCenterSubmissionStatus;
+        DELETE FROM dbo.BudgetItems;
+        DELETE FROM dbo.BudgetPlans;
+        DELETE FROM dbo.AuthTokens;
+        DELETE FROM dbo.UserRoles;
+        DELETE FROM dbo.RolePermissions;
+        DELETE FROM dbo.Users;
+        DELETE FROM dbo.Roles;
+        DELETE FROM dbo.Permissions;
+        DELETE FROM dbo.GlAccounts;
+        DELETE FROM dbo.FiscalYears;
+        DELETE FROM dbo.CostCenters;
+        DELETE FROM dbo.Positions;
+        DELETE FROM dbo.Departments;
+      `);
+    });
 
     for (const d of departments) {
       const r = req();

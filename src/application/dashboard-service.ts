@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { BudgetPlan, User } from "@/domain/entities";
 import type {
   IApprovalHistoryRepository,
@@ -100,6 +102,19 @@ function finalize(counts: StatusCounts): StatusCounts {
   return counts;
 }
 
+/**
+ * DashboardService
+ *
+ * Responsibility
+ * --------------
+ * Aggregates home-dashboard counts and lists for the signed-in user.
+ *
+ * Does NOT:
+ * - mutate budgets or notifications
+ *
+ * Workflows: read-only over WF-001…010 state
+ * Dependencies: BudgetPlanService, AuthorizationService, reference repos
+ */
 export class DashboardService {
   constructor(
     private readonly budgets: BudgetPlanService,

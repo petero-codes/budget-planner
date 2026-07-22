@@ -1,3 +1,5 @@
+import "server-only";
+
 import type {
   ApprovalHistoryEntry,
   ApprovalRouteStep,
@@ -19,6 +21,20 @@ import type {
   User,
   WorkflowHistoryEntry,
 } from "@/domain/entities";
+
+/**
+ * Repository interfaces (+ IUnitOfWork)
+ *
+ * Responsibility
+ * --------------
+ * Persistence contracts for the application layer. Implementations live in
+ * mock/ and sql/. Application code must depend on these interfaces only.
+ *
+ * Does NOT:
+ * - contain business workflows (services) or SQL (sql/)
+ *
+ * Related: docs/DEPENDENCY_MAP.md, docs/DATABASE.md
+ */
 
 export interface RoleDefinition {
   code: string;
@@ -93,7 +109,7 @@ export interface IBudgetLineageRepository {
   getByKey(
     costCenterId: string,
     fiscalYearId: string,
-    originalBudgetType: string
+    originalBudgetCategory: string
   ): Promise<BudgetLineage | null>;
   listBudgetNumbers(): Promise<string[]>;
   save(lineage: BudgetLineage): Promise<BudgetLineage>;
@@ -121,7 +137,7 @@ export interface IBudgetPlanRepository {
   findActiveDuplicate(
     costCenterId: string,
     fiscalYearId: string,
-    budgetType: string
+    budgetCategory: string
   ): Promise<BudgetPlan | null>;
   findActiveInLineage(lineageId: string): Promise<BudgetPlan | null>;
   search(query: string): Promise<BudgetPlan[]>;
@@ -151,10 +167,12 @@ export interface IBudgetAttachmentRepository {
 
 export interface IBudgetAttachmentCategoryRepository {
   listActive(): Promise<BudgetAttachmentCategory[]>;
-  listRequiredForBudgetType(budgetType: string): Promise<BudgetAttachmentCategory[]>;
+  listRequiredForBudgetCategory(
+    budgetCategory: string
+  ): Promise<BudgetAttachmentCategory[]>;
   listAll(): Promise<BudgetAttachmentCategory[]>;
   save(category: BudgetAttachmentCategory): Promise<BudgetAttachmentCategory>;
-  setRequirements(budgetType: string, categoryIds: string[]): Promise<void>;
+  setRequirements(budgetCategory: string, categoryIds: string[]): Promise<void>;
 }
 
 export interface ISapPackageRepository {
@@ -186,19 +204,48 @@ export interface IAuditLogRepository {
 
 export interface INotificationRepository {
   create(notification: Notification): Promise<void>;
-  listByUser(userId: string): Promise<Notification[]>;
-  markRead(id: string): Promise<void>;
-  /** Remove a single notification owned by userId (IDOR-safe). */
-  dismiss(id: string, userId: string): Promise<void>;
   /**
-   * Clear notifications tied to a budget plan.
+   * Active notifications for a user (unresolved and un-archived) newest-first.
+   * Pass `includeResolved` to return resolved history instead.
+   */
+  listByUser(
+    userId: string,
+    options?: { includeResolved?: boolean }
+  ): Promise<Notification[]>;
+  /** Mark a single notification read (IDOR-safe). Read is not resolution. */
+  markRead(id: string, userId: string): Promise<void>;
+  /** Mark all of a user's active notifications read. */
+  markAllRead(userId: string): Promise<void>;
+  /**
+   * Resolve (mark work complete) notifications tied to a budget plan.
    * If userId is set, only that user's; otherwise all users for the plan.
    * If types is set, only those notification types.
    */
-  dismissForPlan(
+  resolveForPlan(
     planId: string,
-    options?: { userId?: string; types?: string[] }
+    options?: { userId?: string; types?: string[]; resolvedBy?: string | null }
   ): Promise<void>;
+  /**
+   * Resolve notifications tied to any business entity (User, FiscalYear, Issue…).
+   * If userId is set, only that user's; otherwise all recipients.
+   * If types is set, only those notification types.
+   */
+  resolveForEntity(
+    entityType: string,
+    entityId: string,
+    options?: { userId?: string; types?: string[]; resolvedBy?: string | null }
+  ): Promise<void>;
+  /**
+   * Resolve a single notification owned by userId (IDOR-safe). Used to
+   * acknowledge informational notifications; callers must not expose this for
+   * actionable (workflow-owned) notifications.
+   */
+  resolveOwn(id: string, userId: string, resolvedBy?: string | null): Promise<void>;
+  /**
+   * Archive a single, already-resolved notification owned by userId (IDOR-safe).
+   * Refuses to archive unresolved (still-pending) work.
+   */
+  archiveResolved(id: string, userId: string): Promise<void>;
   /** Soft-clear (toolkit). Leaves rows for history inspection. */
   softClear(options: {
     userId?: string;

@@ -1,4 +1,7 @@
 /** SQL Server transient errors eligible for retry (strategies.md). */
+
+import "server-only";
+
 const TRANSIENT_NUMBERS = new Set([
   -2, // Timeout
   1205, // Deadlock victim

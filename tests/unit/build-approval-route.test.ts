@@ -73,7 +73,7 @@ describe("ApprovalService", () => {
     setMemoryUserId(IDS.patrick);
     const patrick = (await repos.users.getById(IDS.patrick))!;
     const plan = await budgetPlanService.createDraft(patrick, {
-      budgetType: "Primary",
+      budgetCategory: "RECURRENT",
       fiscalYearId: IDS.fy2027,
       fromPeriod: "2026-07-01",
       toPeriod: "2027-06-30",
@@ -97,7 +97,7 @@ describe("ApprovalService", () => {
   it("GM submit enters Finance queue directly", async () => {
     const joyce = (await repos.users.getById(IDS.joyce))!;
     const plan = await budgetPlanService.createDraft(joyce, {
-      budgetType: "Primary",
+      budgetCategory: "RECURRENT",
       fiscalYearId: IDS.fy2027,
       fromPeriod: "2026-07-01",
       toPeriod: "2027-06-30",
@@ -112,7 +112,7 @@ describe("ApprovalService", () => {
   it("returns for revision with comment", async () => {
     const patrick = (await repos.users.getById(IDS.patrick))!;
     const plan = await budgetPlanService.createDraft(patrick, {
-      budgetType: "Primary",
+      budgetCategory: "RECURRENT",
       fiscalYearId: IDS.fy2027,
       fromPeriod: "2026-07-01",
       toPeriod: "2027-06-30",
@@ -140,7 +140,7 @@ describe("ApprovalService", () => {
   it("manager cannot reject; GM can reject permanently", async () => {
     const patrick = (await repos.users.getById(IDS.patrick))!;
     const plan = await budgetPlanService.createDraft(patrick, {
-      budgetType: "Primary",
+      budgetCategory: "RECURRENT",
       fiscalYearId: IDS.fy2027,
       fromPeriod: "2026-07-01",
       toPeriod: "2027-06-30",

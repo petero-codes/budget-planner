@@ -1,46 +1,19 @@
+import "server-only";
+
 import type { BudgetAttachment, BudgetPlan } from "@/domain/entities";
+import type {
+  AttachmentDiff,
+  HeaderDiff,
+  LineDiff,
+  VersionCompareResult,
+} from "@/lib/shared/version-compare-types";
 
-export type LineDiff = {
-  glAccountId: string;
-  glCode?: string;
-  change: "added" | "removed" | "modified" | "unchanged";
-  fromAmount?: number;
-  toAmount?: number;
-};
-
-export type HeaderDiff = {
-  field: string;
-  from: string | null;
-  to: string | null;
-  changed: boolean;
-};
-
-export type AttachmentDiff = {
-  categoryId: string;
-  fileName: string;
-  change: "added" | "removed" | "replaced" | "inherited";
-};
-
-export type VersionCompareResult = {
-  fromVersionId: string;
-  toVersionId: string;
-  fromLabel: string | null;
-  toLabel: string | null;
-  headerChanges: HeaderDiff[];
-  lineDiffs: LineDiff[];
-  attachmentDiffs: AttachmentDiff[];
-  totalFrom: number;
-  totalTo: number;
-  totalDelta: number;
-  summary: {
-    linesModified: number;
-    linesAdded: number;
-    linesRemoved: number;
-    attachmentsAdded: number;
-    attachmentsRemoved: number;
-    headerFieldsChanged: number;
-  };
-};
+export type {
+  AttachmentDiff,
+  HeaderDiff,
+  LineDiff,
+  VersionCompareResult,
+} from "@/lib/shared/version-compare-types";
 
 function total(plan: BudgetPlan): number {
   return plan.lines.reduce((s, l) => s + l.amount, 0);
@@ -59,7 +32,7 @@ export function compareVersions(
   }> = [
     { field: "Department", from: from.costCenterId, to: to.costCenterId },
     { field: "Budget Owner", from: from.ownerId, to: to.ownerId },
-    { field: "Budget Type", from: from.budgetType, to: to.budgetType },
+    { field: "Budget Category", from: from.budgetCategory, to: to.budgetCategory },
     { field: "From Period", from: from.fromPeriod, to: to.fromPeriod },
     { field: "To Period", from: from.toPeriod, to: to.toPeriod },
     { field: "Description", from: from.description, to: to.description },

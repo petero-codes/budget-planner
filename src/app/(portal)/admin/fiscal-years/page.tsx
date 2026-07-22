@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
 import { StatusChip } from "@/components/shared/status-chip";
 import { Button } from "@/components/ui/button";
-import { apiGet, apiSend } from "@/lib/client-api";
+import { apiGet, apiSend } from "@/lib/client/client-api";
 import type { FiscalYear, User } from "@/domain/entities";
 
 export default function FiscalYearsAdminPage() {

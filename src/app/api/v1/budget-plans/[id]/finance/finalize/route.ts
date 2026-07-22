@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { financeService, getCurrentUser } from "@/infrastructure/di";
 import { budgetApiError } from "@/lib/security/budget-api-error";
 
+/** POST /api/v1/budget-plans/:id/finance/finalize — WF-007 → FinanceService.finalize */
 export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } }

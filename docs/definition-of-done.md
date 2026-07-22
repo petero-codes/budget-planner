@@ -14,7 +14,7 @@ A change is complete only when all applicable items pass.
 - [ ] Transaction/UoW or equivalent atomicity for multi-write paths
 - [ ] Loading, empty, and error UI states (when UI touched)
 - [ ] TypeScript clean · ESLint clean · unit tests pass
-- [ ] Documentation updated **or** drift listed per Documentation Consistency Policy
+- [ ] Documentation updated per the **Documentation-update matrix** (`ENGINEERING_GOVERNANCE.md` → Governance layers) **or** drift listed per Documentation Consistency Policy — always update `CHANGE_HISTORY.md` + the branch `release-notes/` file
 - [ ] No TODOs, dead code, or unrelated file changes outside approved scope
 - [ ] No RBAC / workflow / audit regressions
 

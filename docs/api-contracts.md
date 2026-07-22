@@ -1,5 +1,35 @@
 # API Contracts — `/api/v1`
 
+## Breaking changes
+
+### 2026-07-22 — `budgetType` renamed to `budgetCategory`
+
+**BREAKING CHANGE:** JSON field `budgetType` has been renamed to `budgetCategory` on budget plan
+request and response bodies. Values are unchanged catalog codes (`RECURRENT`, `MAJOR`, `CAPEX`) or
+legacy strings on historical rows (`Primary`, `Supplementary`, …).
+
+| Before | After |
+|--------|-------|
+| `budgetType` | `budgetCategory` |
+
+**Affected endpoints:**
+
+| Method | Path |
+|--------|------|
+| `POST` | `/api/v1/budget-plans` |
+| `PATCH` | `/api/v1/budget-plans/:id` |
+| `GET` | `/api/v1/budget-plans` (list items) |
+| `GET` | `/api/v1/budget-plans/:id` (detail) |
+| `GET` | `/api/v1/finance/dashboard` — aggregate key `byBudgetType` → `byBudgetCategory`; adds `byLegacyBudgetCategory` |
+| `GET` | `/api/v1/finance/approved` — inbox row field `budgetCategory` |
+
+**Unchanged at integration boundary:** SQL columns `BudgetPlans.BudgetType` /
+`BudgetLineage.OriginalBudgetType`; SAP CSV header `BudgetType` (value = code).
+
+**Migration for API clients:** rename the JSON property; do not change stored code values.
+
+---
+
 ## Error envelope
 
 ```json
@@ -41,7 +71,7 @@
 | POST | /api/v1/budget-plans/:id/reject | `{ "reason": "..." }` |
 | GET | /api/v1/approvals/pending | my approval queue |
 | GET | /api/v1/reports/budgets | role-scoped reports |
-| GET | /api/v1/budget-plans/:id/sap-export | CSV when Approved |
+| GET | /api/v1/budget-plans/:id/sap-export | CSV when Finalized (legacy Approved also) |
 | GET | /api/v1/admin/users | SystemAdmin user list + role/position/org reference data |
 | POST | /api/v1/admin/users | SystemAdmin creates an account with a temporary password |
 | PATCH | /api/v1/admin/users/:id | SystemAdmin updates identity, hierarchy, cost center, roles, or active state |
@@ -67,7 +97,7 @@ Request:
 
 ```json
 {
-  "budgetType": "Primary",
+  "budgetCategory": "RECURRENT",
   "fiscalYearId": "…",
   "fromPeriod": "2026-07-01",
   "toPeriod": "2027-06-30",
@@ -76,7 +106,14 @@ Request:
 }
 ```
 
-Response `201`: BudgetPlan JSON.
+Response `201`: BudgetPlan JSON (field `budgetCategory`).
+
+### PATCH /api/v1/budget-plans/:id
+
+Update a draft or returned budget. Same body shape as create; **`budgetCategory`** replaces the
+former `budgetType` field (see BREAKING CHANGE above).
+
+Response `200`: updated BudgetPlan JSON.
 
 Response `409` when an active budget already exists for the same
 `(CostCenter, FiscalYear, BudgetType)` (statuses Draft / InApproval /
@@ -91,7 +128,7 @@ ReturnedForRevision):
     "existingBudget": {
       "id": "…",
       "status": "ReturnedForRevision",
-      "budgetType": "Amendment",
+      "budgetCategory": "Amendment",
       "costCenterCode": "KGN70010",
       "fiscalYearLabel": 2027,
       "ownerId": "…",

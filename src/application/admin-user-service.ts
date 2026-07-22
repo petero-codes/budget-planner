@@ -1,3 +1,5 @@
+import "server-only";
+
 import type {
   CostCenter,
   Department,
@@ -10,6 +12,7 @@ import type {
   IBudgetPlanRepository,
   ICostCenterRepository,
   IDepartmentRepository,
+  INotificationRepository,
   IUnitOfWork,
   IUserAdminRepository,
   RoleDefinition,
@@ -35,6 +38,22 @@ export type AdminUserReferenceData = {
   roles: RoleDefinition[];
 };
 
+/**
+ * AdminUserService
+ *
+ * Responsibility
+ * --------------
+ * Owns SystemAdmin user CRUD, activate/deactivate, password reset, and hierarchy
+ * validation (exactly one GM root).
+ *
+ * Does NOT:
+ * - approve budgets (System Admin never approves — separation of duties)
+ * - mutate fiscal years (FiscalYearService)
+ *
+ * Business Rules: BR-17, BR-38+
+ * Workflows: WF-014
+ * Dependencies: AuthorizationService, UnitOfWork, users/departments/costCenters/audits/notifications
+ */
 export class AdminUserServiceError extends Error {
   constructor(
     message: string,
@@ -63,6 +82,7 @@ export class AdminUserService {
     private readonly costCenters: ICostCenterRepository,
     private readonly budgets: IBudgetPlanRepository,
     private readonly audits: IAuditLogRepository,
+    private readonly notifications: INotificationRepository,
     private readonly authz: AuthorizationService,
     private readonly uow: IUnitOfWork
   ) {}
@@ -107,6 +127,17 @@ export class AdminUserService {
     return this.uow.runInTransaction(async () => {
       const saved = await this.users.create(user, passwordHash);
       await this.audit("UserCreated", saved.id, actor, correlationId, null, saved);
+      await this.notifyAdmins(
+        allUsers,
+        actor.id,
+        {
+          title: "New user account created",
+          message: `${actor.name} created an account for ${saved.name} (${saved.email}).`,
+          entityId: saved.id,
+          targetUrl: `/admin/users/${saved.id}`,
+        },
+        new Date().toISOString()
+      );
       return saved;
     });
   }
@@ -427,6 +458,36 @@ export class AdminUserService {
     );
     if (!another) {
       throw new AdminUserServiceError(message, code);
+    }
+  }
+
+  /** Notify every other active System Administrator about an admin event. */
+  private async notifyAdmins(
+    directory: User[],
+    actorId: string,
+    payload: { title: string; message: string; entityId: string; targetUrl: string },
+    now: string
+  ): Promise<void> {
+    const admins = directory.filter(
+      (u) => u.active && u.id !== actorId && u.roleCodes.includes("SystemAdmin")
+    );
+    for (const admin of admins) {
+      await this.notifications.create({
+        id: newId(),
+        userId: admin.id,
+        type: "AdminUser",
+        title: payload.title,
+        message: payload.message,
+        priority: "Low",
+        category: "Administration",
+        actionLabel: "View User",
+        relatedPlanId: null,
+        entityType: "User",
+        entityId: payload.entityId,
+        targetUrl: payload.targetUrl,
+        isRead: false,
+        createdAt: now,
+      });
     }
   }
 

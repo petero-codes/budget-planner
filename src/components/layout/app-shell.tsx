@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { Position, User } from "@/domain/entities";
 import { Header } from "./header";
 import { Sidebar } from "./sidebar";
 import { Footer } from "./footer";
-import { apiGet, ApiError } from "@/lib/client-api";
-import { canAccessPath } from "@/lib/portal-access";
+import { apiGet, ApiError } from "@/lib/client/client-api";
+import { canAccessPath } from "@/lib/client/portal-access";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
@@ -20,52 +20,52 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false);
 
-  useEffect(() => {
-    async function loadSession() {
-      try {
-        const data = await apiGet<{
-          user: User;
-          position: Position | null;
-          unreadNotifications: number;
-          developmentToolkitEnabled?: boolean;
-        }>("/api/v1/me");
-        const toolkitOn = Boolean(data.developmentToolkitEnabled);
-        if (
-          !canAccessPath(pathname ?? "/", data.user, {
-            developmentToolkitEnabled: toolkitOn,
-          })
-        ) {
-          router.replace("/access-denied");
-          return;
-        }
-        setUser(data.user);
-        setPosition(data.position);
-        setNotificationCount(data.unreadNotifications);
-        setDevelopmentToolkitEnabled(toolkitOn);
-        setError(null);
-      } catch (e) {
-        const status = e instanceof ApiError ? e.status : 0;
-        const message = e instanceof Error ? e.message : "Failed to load session";
-        // Stale / orphaned session cookie — send them to login instead of a dead portal page.
-        if (
-          status === 401 ||
-          message.includes("Not signed in") ||
-          message.includes("Current user not found")
-        ) {
-          router.replace("/login");
-          return;
-        }
-        setError(message);
+  const loadSession = useCallback(async () => {
+    try {
+      const data = await apiGet<{
+        user: User;
+        position: Position | null;
+        unreadNotifications: number;
+        developmentToolkitEnabled?: boolean;
+      }>("/api/v1/me");
+      const toolkitOn = Boolean(data.developmentToolkitEnabled);
+      if (
+        !canAccessPath(pathname ?? "/", data.user, {
+          developmentToolkitEnabled: toolkitOn,
+        })
+      ) {
+        router.replace("/access-denied");
+        return;
       }
+      setUser(data.user);
+      setPosition(data.position);
+      setNotificationCount(data.unreadNotifications);
+      setDevelopmentToolkitEnabled(toolkitOn);
+      setError(null);
+    } catch (e) {
+      const status = e instanceof ApiError ? e.status : 0;
+      const message = e instanceof Error ? e.message : "Failed to load session";
+      // Stale / orphaned session cookie — send them to login instead of a dead portal page.
+      if (
+        status === 401 ||
+        message.includes("Not signed in") ||
+        message.includes("Current user not found")
+      ) {
+        router.replace("/login");
+        return;
+      }
+      setError(message);
     }
+  }, [pathname, router]);
 
+  useEffect(() => {
     void loadSession();
     function onFocus() {
       void loadSession();
     }
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [pathname, router]);
+  }, [loadSession]);
 
   useEffect(() => {
     if (!navOpen) return;
@@ -108,6 +108,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         user={user}
         position={position}
         notificationCount={notificationCount}
+        onNotificationsChanged={() => void loadSession()}
         navOpen={navOpen}
         onMenuClick={() => setNavOpen((v) => !v)}
       />

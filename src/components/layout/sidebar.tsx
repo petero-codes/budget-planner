@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { User } from "@/domain/entities";
-import { getNavItems } from "@/lib/navigation";
+import { getNavItems } from "@/lib/client/navigation";
 import { cn } from "@/lib/utils";
 
 export function Sidebar({

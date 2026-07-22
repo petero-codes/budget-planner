@@ -1,3 +1,5 @@
+import "server-only";
+
 import type {
   BudgetLineItem,
   BudgetLineage,
@@ -5,6 +7,11 @@ import type {
   FiscalYear,
   User,
 } from "@/domain/entities";
+import {
+  defaultBudgetCategory,
+  isBudgetCategory,
+  budgetCategoryAtIndex,
+} from "@/domain/constants/budget-types";
 import type {
   CloneFyOptions,
   CloneFyPreview,
@@ -25,6 +32,7 @@ import {
 } from "@/domain/rules/budget-number";
 import { assertDevelopmentToolkitAccess } from "@/lib/development-toolkit-access";
 import { newId, seedUuid } from "@/infrastructure/id";
+import { EXPECTED_SCHEMA_VERSION } from "@/infrastructure/migrations/registry";
 import type { RepositoryBundle } from "@/infrastructure/di";
 import {
   FiscalYearService,
@@ -102,6 +110,20 @@ function stageLabel(plan: BudgetPlan): string {
   return plan.currentApproverId ? "InApproval" : "InApproval";
 }
 
+/**
+ * DevelopmentToolkitService
+ *
+ * Responsibility
+ * --------------
+ * Dev-only seeding, workflow simulation, and diagnostics. Triple-gated:
+ * NODE_ENV=development + ENABLE_DEVELOPMENT_TOOLKIT + SystemAdmin.
+ *
+ * Does NOT:
+ * - run in staging/production (gate must fail closed)
+ *
+ * Workflows: development tooling (not production WF)
+ * Dependencies: full RepositoryBundle, FiscalYearService
+ */
 export class DevelopmentToolkitService {
   constructor(
     private readonly repos: RepositoryBundle,
@@ -258,7 +280,7 @@ export class DevelopmentToolkitService {
       openFyLabel: health.openFyLabel,
       databaseLabel:
         this.getDriver() === "sql" ? "SQL Server" : "In-memory mock",
-      migrationVersion: "009",
+      migrationVersion: EXPECTED_SCHEMA_VERSION,
       connectionHealthy: health.connectionStatus === "Healthy",
       sessionSecret:
         secret && secret.length >= 32 ? "Configured" : "Missing",
@@ -427,18 +449,20 @@ export class DevelopmentToolkitService {
     const dept = cc
       ? await this.repos.departments.getById(cc.departmentId)
       : null;
-    const budgetType = source.budgetType === "Supplementary" ? "Supplementary" : "Primary";
+    const budgetCategory = isBudgetCategory(source.budgetCategory)
+      ? source.budgetCategory
+      : defaultBudgetCategory();
 
-    // Unique type per CC+FY: keep Primary/Supplementary for the plan; use a
+    // Unique type per CC+FY: keep catalog category on the plan; use a
     // distinct OriginalBudgetType on the lineage when the key is already taken.
-    let typeToUse: string = budgetType;
+    let categoryToUse: string = budgetCategory;
     const existing = await this.repos.lineages.getByKey(
       source.costCenterId,
       targetFyId,
-      typeToUse
+      categoryToUse
     );
     if (existing) {
-      typeToUse = `${budgetType}-Demo-${newId("t").slice(0, 8)}`;
+      categoryToUse = `${budgetCategory}-Demo-${newId("t").slice(0, 8)}`;
     }
 
     const seq = nextSequenceForDepartment(
@@ -466,7 +490,7 @@ export class DevelopmentToolkitService {
       id: lineageId,
       costCenterId: source.costCenterId,
       fiscalYearId: targetFyId,
-      originalBudgetType: typeToUse,
+      originalBudgetCategory: categoryToUse,
       budgetNumber,
       currentVersionId: planId,
       latestFinalizedVersionId: null,
@@ -479,7 +503,7 @@ export class DevelopmentToolkitService {
       ownerId: source.ownerId,
       costCenterId: source.costCenterId,
       fiscalYearId: targetFyId,
-      budgetType,
+      budgetCategory,
       fromPeriod: source.fromPeriod,
       toPeriod: source.toPeriod,
       description:
@@ -723,7 +747,7 @@ export class DevelopmentToolkitService {
           ownerId: owner.id,
           costCenterId: cc.id,
           fiscalYearId: open.id,
-          budgetType: "Primary",
+          budgetCategory: budgetCategoryAtIndex(i),
           fromPeriod: open.startDate,
           toPeriod: open.endDate,
           description: `[Demo] Sample budget ${i + 1}`,
@@ -803,7 +827,7 @@ export class DevelopmentToolkitService {
         const claim = await this.repos.financeClaims.getActiveClaim(plan.id);
         if (claim) await this.repos.financeClaims.release(plan.id, now);
         await this.repos.routes.replaceForBudget(plan.id, []);
-        await this.repos.notifications.dismissForPlan(plan.id);
+        await this.repos.notifications.resolveForPlan(plan.id);
         const atts = await this.repos.attachments.listByBudgetId(plan.id);
         for (const att of atts) {
           if (!att.isArchived) {

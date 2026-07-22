@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Eye,
   FileText,
@@ -16,12 +16,23 @@ import { PageShell } from "@/components/shared/page-shell";
 import { StatusChip } from "@/components/shared/status-chip";
 import { ActionLink, Button } from "@/components/ui/button";
 import { ApiError, apiGet, apiSend } from "@/lib/client-api";
+import {
+  type BudgetCategoryCode,
+  type BudgetCategorySummary,
+  type LegacyBudgetCategoryRow,
+  BUDGET_CATEGORY_DISTRIBUTION_HEADING,
+  LEGACY_BUDGET_CATEGORY_DISTRIBUTION_HEADING,
+  budgetCategoryDistribution,
+  budgetCategoryLabel,
+  budgetCategoryAccentClasses,
+} from "@/domain/constants/budget-types";
 import type { FiscalYear, User } from "@/domain/entities";
 import { formatCurrency } from "@/lib/utils";
 
 type InboxRow = {
   planId: string;
   budgetNumber: string | null;
+  budgetCategory: string;
   status: string;
   employee: string;
   department: string;
@@ -52,11 +63,15 @@ type Dash = {
   };
   byYear: Record<string, { count: number; amount: number }>;
   byCostCenter: Record<string, { count: number; amount: number }>;
+  byBudgetCategory: BudgetCategorySummary;
+  byLegacyBudgetCategory: LegacyBudgetCategoryRow[];
   years: FiscalYear[];
 };
 
 export default function FinanceDashboardPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedPlanId = searchParams?.get("planId") ?? null;
   const [data, setData] = useState<Dash | null>(null);
   const [inbox, setInbox] = useState<InboxRow[]>([]);
   const [search, setSearch] = useState("");
@@ -65,6 +80,9 @@ export default function FinanceDashboardPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [returnReason, setReturnReason] = useState("");
   const [returnTarget, setReturnTarget] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<
+    BudgetCategoryCode | string | null
+  >(null);
 
   async function reload() {
     // Best-effort: persist overdue escalations + notify Finance admins.
@@ -97,19 +115,27 @@ export default function FinanceDashboardPage() {
   }, [router]);
 
   const filtered = useMemo(() => {
+    let rows = inbox;
+    if (selectedPlanId) {
+      rows = rows.filter((row) => row.planId === selectedPlanId);
+    }
+    if (categoryFilter) {
+      rows = rows.filter((r) => r.budgetCategory === categoryFilter);
+    }
     const term = search.trim().toLowerCase();
-    if (!term) return inbox;
-    return inbox.filter(
+    if (!term) return rows;
+    return rows.filter(
       (r) =>
         r.employee.toLowerCase().includes(term) ||
         r.department.toLowerCase().includes(term) ||
         r.costCenter.toLowerCase().includes(term) ||
+        budgetCategoryLabel(r.budgetCategory).toLowerCase().includes(term) ||
         (r.budgetNumber?.toLowerCase().includes(term) ?? false) ||
         String(r.fiscalYear ?? "").includes(term) ||
         (r.sapReference?.toLowerCase().includes(term) ?? false) ||
         r.status.toLowerCase().includes(term)
     );
-  }, [inbox, search]);
+  }, [inbox, search, selectedPlanId, categoryFilter]);
 
   const waiting = filtered.filter((r) => r.status === "PendingFinanceReview");
   const claimed = filtered.filter((r) => r.status === "Claimed");
@@ -319,6 +345,96 @@ export default function FinanceDashboardPage() {
         ))}
       </div>
 
+      <div className="mb-4">
+        <p className="mb-2 text-sm font-medium text-kengen-navy">
+          {BUDGET_CATEGORY_DISTRIBUTION_HEADING}
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <button
+            type="button"
+            onClick={() => setCategoryFilter(null)}
+            className={`rounded-2xl border px-3 py-3 text-left transition ${
+              categoryFilter === null
+                ? "border-kengen-blue bg-kengen-blue/10 ring-1 ring-kengen-blue/40"
+                : "border-white/50 bg-white/70 hover:border-kengen-blue/30"
+            }`}
+          >
+            <p className="text-meta font-semibold uppercase text-kengen-navy">
+              All
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-kengen-navy">
+              {inbox.length}
+            </p>
+            <p className="text-meta text-neutral-700">All categories</p>
+          </button>
+          {budgetCategoryDistribution(data.byBudgetCategory).map((row) => {
+            const active = categoryFilter === row.code;
+            const accent = budgetCategoryAccentClasses(row.code);
+            return (
+              <button
+                key={row.code}
+                type="button"
+                onClick={() =>
+                  setCategoryFilter(active ? null : row.code)
+                }
+                className={`rounded-2xl border px-3 py-3 text-left transition ${
+                  active
+                    ? `ring-1 ${accent.ring} ${accent.border} ${accent.bg}`
+                    : "border-white/50 bg-white/70 hover:border-kengen-blue/30"
+                }`}
+              >
+                <p className={`text-meta font-semibold uppercase ${accent.text}`}>
+                  {row.shortLabel}
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-kengen-navy">
+                  {row.count}
+                </p>
+                <p className="text-meta text-neutral-700">
+                  {formatCurrency(row.amount)}
+                  {row.percent > 0 ? ` · ${row.percent}%` : ""}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+        {data.byLegacyBudgetCategory.length > 0 ? (
+          <div className="mt-3">
+            <p className="mb-2 text-meta font-medium text-neutral-700">
+              {LEGACY_BUDGET_CATEGORY_DISTRIBUTION_HEADING}
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {data.byLegacyBudgetCategory.map((row) => {
+                const active = categoryFilter === row.code;
+                return (
+                  <button
+                    key={row.code}
+                    type="button"
+                    onClick={() =>
+                      setCategoryFilter(active ? null : row.code)
+                    }
+                    className={`rounded-2xl border px-3 py-3 text-left transition ${
+                      active
+                        ? "border-neutral-500 bg-neutral-100 ring-1 ring-neutral-400/40"
+                        : "border-neutral-300/60 bg-neutral-50/80 hover:border-neutral-400/50"
+                    }`}
+                  >
+                    <p className="text-meta font-semibold text-neutral-800">
+                      {row.label}
+                    </p>
+                    <p className="mt-1 text-2xl font-semibold text-kengen-navy">
+                      {row.count}
+                    </p>
+                    <p className="text-meta text-neutral-600">
+                      {formatCurrency(row.amount)}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
       <div className="mb-4 overflow-x-auto rounded border border-neutral-400/30 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-400/20 bg-neutral-100 px-3 py-2">
           <p className="text-meta font-medium uppercase text-neutral-700">
@@ -341,6 +457,7 @@ export default function FinanceDashboardPage() {
             <thead className="sticky top-0 bg-neutral-100 text-meta uppercase text-neutral-700">
               <tr>
                 <th className="px-2 py-1.5">Budget #</th>
+                <th className="px-2 py-1.5">Category</th>
                 <th className="px-2 py-1.5">Status</th>
                 <th className="px-2 py-1.5">Employee</th>
                 <th className="px-2 py-1.5">Cost center</th>
@@ -358,6 +475,7 @@ export default function FinanceDashboardPage() {
                   <td className="px-2 py-1.5 font-medium">
                     {r.budgetNumber ?? r.planId.slice(0, 8)}
                   </td>
+                  <td className="px-2 py-1.5">{budgetCategoryLabel(r.budgetCategory)}</td>
                   <td className="px-2 py-1.5">
                     <StatusChip status={r.status} />
                   </td>

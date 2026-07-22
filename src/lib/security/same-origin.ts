@@ -3,6 +3,9 @@
  * Accepts Origin, else Referer; rejects when neither is present or host mismatches.
  */
 
+import "server-only";
+
+
 export type SameOriginResult =
   | { ok: true }
   | { ok: false; code: "FORBIDDEN_ORIGIN" | "MISSING_ORIGIN"; message: string };

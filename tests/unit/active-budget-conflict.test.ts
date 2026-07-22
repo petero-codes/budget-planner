@@ -76,10 +76,10 @@ describe("createDraft active duplicate guard", () => {
     );
   });
 
-  it("rejects a second active Primary for the same cost center and year", async () => {
+  it("rejects a second active Recurrent for the same cost center and year", async () => {
     const actor = mockStore.users.find((u) => u.id === IDS.patrick)!;
     const input = {
-      budgetType: "Primary",
+      budgetCategory: "RECURRENT",
       fiscalYearId: IDS.fy2027,
       fromPeriod: "2026-07-01",
       toPeriod: "2027-06-30",
@@ -100,7 +100,7 @@ describe("createDraft active duplicate guard", () => {
     const actor = mockStore.users.find((u) => u.id === IDS.patrick)!;
     await expect(
       service.createDraft(actor, {
-        budgetType: "Amendment",
+        budgetCategory: "Amendment",
         fiscalYearId: IDS.fy2027,
         fromPeriod: "2026-07-01",
         toPeriod: "2027-06-30",
@@ -108,13 +108,13 @@ describe("createDraft active duplicate guard", () => {
         description: null,
         lines: [{ glAccountId: mockStore.glAccounts[0]!.id, amount: 1000 }],
       })
-    ).rejects.toThrow(/original budget types/i);
+    ).rejects.toThrow(/catalog categories/i);
   });
 
-  it("allows Supplementary alongside an active Primary lineage key", async () => {
+  it("allows Major alongside an active Recurrent lineage key", async () => {
     const actor = mockStore.users.find((u) => u.id === IDS.patrick)!;
     await service.createDraft(actor, {
-      budgetType: "Primary",
+      budgetCategory: "RECURRENT",
       fiscalYearId: IDS.fy2027,
       fromPeriod: "2026-07-01",
       toPeriod: "2027-06-30",
@@ -123,8 +123,8 @@ describe("createDraft active duplicate guard", () => {
       lines: [{ glAccountId: mockStore.glAccounts[0]!.id, amount: 1000 }],
     });
 
-    const supplementary = await service.createDraft(actor, {
-      budgetType: "Supplementary",
+    const major = await service.createDraft(actor, {
+      budgetCategory: "MAJOR",
       fiscalYearId: IDS.fy2027,
       fromPeriod: "2026-07-01",
       toPeriod: "2027-06-30",
@@ -132,6 +132,6 @@ describe("createDraft active duplicate guard", () => {
       description: null,
       lines: [{ glAccountId: mockStore.glAccounts[0]!.id, amount: 2000 }],
     });
-    expect(supplementary.budgetType).toBe("Supplementary");
+    expect(major.budgetCategory).toBe("MAJOR");
   });
 });

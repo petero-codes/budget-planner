@@ -37,6 +37,48 @@ After spine + full matrix + ops checks: release dossier → **Go / Conditional G
 
 ---
 
+## Local SQL pre-staging execution (automated) — Step 0
+
+Run the critical spine on **local SQL first**; only repeat the browser matrix on
+staging once this passes. This is an automated harness that drives the **real
+application service layer** (no HTTP, no mocks, no browser) against local SQL
+Server and verifies the **database** after every transition (BudgetPlans,
+Notifications, ApprovalHistory, AuditLogs, FinanceQueueClaims). It is
+re-runnable: pre-cleans and tears down exactly its own lineage via
+`scripts/lib/test-database-cleaner.ts` (the sole module allowed to disable
+immutability triggers).
+
+**Command:** `npm run e2e:spine` (script: `scripts/e2e-notification-spine.ts`; sets `REPOSITORY_DRIVER=sql`)
+**Stable chain:** Budget Holder `edwin.omondi` → Manager `geofrey.kimutai` → GM `joyce.mwaniki` → Finance `finance.admin` (cost centre `KGN70020`).
+
+| Step | Actor | Verified (DB-level) | Result |
+|------|-------|---------------------|--------|
+| 1 | Budget Holder | Draft→Submit; status `InApproval`; Manager gets 1 active `Approval` notif → `/budgets/{id}`; ApprovalHistory+Audit `Submitted` | Pass |
+| 2 | Manager | Click marks **read but not resolved** (still active); Approve → Manager notif resolved→history, GM gets 1 active `Approval`; no duplicate | Pass |
+| 3 | General Manager | Approve → status `PendingFinanceReview`, no approver; GM notif resolved | Pass |
+| 4 | Finance | Queue notif appears: 1 active `FinanceQueue` → `/finance?planId={id}`; FinanceQueueClaims: 0 active | Pass |
+| 5 | Finance | Claim → status `Claimed`; exactly 1 active FinanceQueueClaim; `FinanceQueue` resolved; personal `FinanceClaim` → `/budgets/{id}` | Pass |
+| 6 | Finance | Release → `PendingFinanceReview`; 0 active claims (ReleasedAt retained); `FinanceClaim` resolved; `FinanceQueue` recreated | Pass |
+| 7 | Finance | Re-claim → 1 active claim; Finalize → `Finalized`, 0 active claims; Finance task notifs resolved; ApprovalHistory+Audit `FinanceFinalized` | Pass |
+| 8 | Budget Holder | Owner gets active `Outcome` (Budget finalized) → `/budgets/{id}` | Pass |
+
+**Negative / state-machine (same run):**
+
+| Scenario | Expected | Result |
+|----------|----------|--------|
+| Owner edits after submit | Denied ("Only Draft or Returned…") | Pass |
+| GM approves before Manager | Denied (not current approver) | Pass |
+| Manager approves twice | Denied (not current approver) | Pass |
+| Finance finalizes without claiming | Denied (not claimant) | Pass |
+| Return-for-revision | Owner gets `Outcome`, Manager `Approval` resolved, budget editable again | Pass |
+| Finance B cannot release/finalize Finance A's claim | **Skipped** — only 1 `FinanceAdministrator` seeded; add peer Finance user later | N/A |
+
+**Latest run:** 2026-07-18 — **all automated service-level checks passed against the local SQL environment** (0 failures; exact count printed by the harness summary — do not transcribe it here to avoid drift). Includes a precheck proving `TestDatabaseCleaner` re-enables immutability triggers even when the wrapped work throws. Teardown via `TestDatabaseCleaner`; re-run confirmed idempotent. No defects uncovered. Observation: informational `Finance` (Low) "is reviewing your budget" notifications to the owner are not auto-resolved (by design — only actionable task notifications auto-resolve).
+
+> **Scope of this gate.** Verified through the application **service layer** against a real SQL Server database. Browser UI, middleware, HTTP routing, cookies, API serialization, and client-side behavior are **intentionally out of scope** here and are covered by the staging / browser matrices below. This pass does not prove the full application end-to-end.
+
+---
+
 ## Prerequisites
 
 | # | Gate | Pass |

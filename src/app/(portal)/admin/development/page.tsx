@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
-import { apiGet, apiSend, ApiError } from "@/lib/client-api";
+import { apiGet, apiSend, ApiError } from "@/lib/client/client-api";
 import type { FiscalYear, User } from "@/domain/entities";
 import type {
   CloneFyPreview,

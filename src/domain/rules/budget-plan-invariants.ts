@@ -1,11 +1,29 @@
 import { Money } from "../value-objects/money";
 import { PeriodRange } from "../value-objects/period-range";
 import {
+  BUDGET_CATEGORY_CODES,
+  BUDGET_CATEGORY_FIELD_LABEL,
+  budgetCategoryLabel,
+  isBudgetCategory,
+} from "../constants/budget-types";
+import {
   EDITABLE_BUDGET_STATUSES,
   LOCKED_BUDGET_STATUSES,
 } from "../value-objects/budget-status";
 import type { BudgetLineItem, BudgetPlan, CostCenter } from "../entities";
 
+/**
+ * Budget plan invariants
+ *
+ * Responsibility
+ * --------------
+ * Pure guards for editability, lock, line validation, SAP code at submit, etc.
+ *
+ * Does NOT:
+ * - call repositories or write audit
+ *
+ * Business Rules: BR-01…05, BR-03, BR-04
+ */
 export class BudgetLockedError extends Error {
   constructor(message = "This budget version is locked and cannot be modified") {
     super(message);
@@ -46,15 +64,23 @@ export function validateBudgetLines(
 }
 
 export function validateBudgetHeader(input: {
-  budgetType: string;
+  budgetCategory: string;
   fiscalYearId: string;
   fromPeriod: string;
   toPeriod: string;
   costCenterId: string;
 }): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  if (!input.budgetType?.trim()) {
-    issues.push({ field: "budgetType", message: "Budget Type is required" });
+  if (!input.budgetCategory?.trim()) {
+    issues.push({
+      field: "budgetCategory",
+      message: `${BUDGET_CATEGORY_FIELD_LABEL} is required`,
+    });
+  } else if (!isBudgetCategory(input.budgetCategory.trim())) {
+    issues.push({
+      field: "budgetCategory",
+      message: `Category must be one of: ${BUDGET_CATEGORY_CODES.map(budgetCategoryLabel).join(", ")}`,
+    });
   }
   if (!input.fiscalYearId) {
     issues.push({ field: "fiscalYearId", message: "Fiscal Year is required" });

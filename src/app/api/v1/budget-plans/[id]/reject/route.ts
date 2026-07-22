@@ -3,6 +3,7 @@ import { approvalService, getCurrentUser } from "@/infrastructure/di";
 import { parseBody, rejectSchema } from "@/lib/security/api-schemas";
 import { budgetApiError } from "@/lib/security/budget-api-error";
 
+/** POST /api/v1/budget-plans/:id/reject — WF-005 (GM only) → ApprovalService.reject */
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }

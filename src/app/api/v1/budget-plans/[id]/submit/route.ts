@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { budgetPlanService, getCurrentUser } from "@/infrastructure/di";
 import { budgetApiError } from "@/lib/security/budget-api-error";
 
+/**
+ * POST /api/v1/budget-plans/:id/submit — WF-002
+ * Thin route: session user → BudgetPlanService.submit → ApprovalService.
+ */
 export async function POST(
   _req: Request,
   { params }: { params: { id: string } }

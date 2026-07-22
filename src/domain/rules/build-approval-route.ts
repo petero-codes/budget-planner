@@ -1,5 +1,19 @@
 import type { User } from "../entities";
 
+/**
+ * buildApprovalRoute
+ *
+ * Responsibility
+ * --------------
+ * Walks Users.managerId from the budget owner to the GM root and returns the
+ * ordered approval steps. Fails closed on broken/circular hierarchy.
+ *
+ * Does NOT:
+ * - persist routes or change budget status (ApprovalService does)
+ *
+ * Business Rules: BR-14…18
+ * Workflows: WF-002
+ */
 export class ApprovalRouteError extends Error {
   constructor(
     message: string,
@@ -119,12 +133,4 @@ export function buildApprovalRoute(
     "No General Manager found in approval chain",
     "GM_MISSING"
   );
-}
-
-/** Original budget types that may start a new lineage (V1). */
-export const ORIGINAL_BUDGET_TYPES = ["Primary", "Supplementary"] as const;
-export type OriginalBudgetType = (typeof ORIGINAL_BUDGET_TYPES)[number];
-
-export function isOriginalBudgetType(type: string): type is OriginalBudgetType {
-  return (ORIGINAL_BUDGET_TYPES as readonly string[]).includes(type);
 }

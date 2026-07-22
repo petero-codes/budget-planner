@@ -1,3 +1,5 @@
+import "server-only";
+
 import { cookies } from "next/headers";
 import { verifySessionClaims } from "@/lib/security/session-token";
 import { isSessionRevoked } from "@/infrastructure/development/session-registry";
