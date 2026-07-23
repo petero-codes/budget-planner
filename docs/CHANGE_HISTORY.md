@@ -15,7 +15,7 @@ Policy". Newest entries at the top.
 - Date: 2026-07-23
 - Author: agent
 - Subsystems: Development Toolkit (Active); documentation matrix only. Frozen: none.
-- Task / Reason: PR #3 failed Docs Guard (5 matrix violations after support removal) and Architecture Guard at Install dependencies / production build. Satisfy docs matrix for Change #027 surface; harden CI install (`npm install --ignore-scripts`, no npm cache); omit `REPOSITORY_DRIVER=mock` on CI build so production+mock fail-fast in `env.ts` does not abort outside `NEXT_PHASE`.
+- Task / Reason: PR #3 failed Docs Guard (5 matrix violations after support removal) and Architecture Guard at Install / production build. Satisfy docs matrix for Change #027; harden CI install; omit `REPOSITORY_DRIVER=mock` on CI build; stub `msnodesqlv8` JS entry on Linux so `next build` can load `sql/pool` without a native `.node` binary.
 - Files: `docs/BUSINESS_RULES.md`, `ENGINEERING_BRAIN.md`, `DEPENDENCY_MAP.md`, `KNOWLEDGE_LOG.md` (K-011), `release-notes/feature-notification-task-runtime.md`, `.github/workflows/architecture-guard.yml`
 - Business rules changed: No (doc alignment; WF-015 already retired in product)
 - Knowledge: K-011 added; K-001 evidence re-verified
