@@ -10,6 +10,20 @@ lives in `CHANGELOG.md`; this log records *what/why/verified* at a glance.
 Governing policy: `docs/ENGINEERING_GOVERNANCE.md` → "Engineering Change Log
 Policy". Newest entries at the top.
 
+## Change #028 — Unblock PR CI (Docs Guard + Architecture Guard install)
+
+- Date: 2026-07-23
+- Author: agent
+- Subsystems: Development Toolkit (Active); documentation matrix only. Frozen: none.
+- Task / Reason: PR #3 failed Docs Guard (5 matrix violations after support removal) and Architecture Guard at Install dependencies. Satisfy docs matrix for Change #027 surface; harden CI install (`npm install --ignore-scripts`, no npm cache) so Linux can reach lint/build.
+- Files: `docs/BUSINESS_RULES.md`, `ENGINEERING_BRAIN.md`, `DEPENDENCY_MAP.md`, `KNOWLEDGE_LOG.md` (K-011), `release-notes/feature-notification-task-runtime.md`, `.github/workflows/architecture-guard.yml`
+- Business rules changed: No (doc alignment; WF-015 already retired in product)
+- Knowledge: K-011 added; K-001 evidence re-verified
+- Verification: Code YES · Tests NO (docs/CI only) · Runtime pending CI · Docs YES
+- Rollback: revert this commit
+
+---
+
 ## Change #027 — Remove in-app Issue Reporting (MVP email support)
 
 - Date: 2026-07-22

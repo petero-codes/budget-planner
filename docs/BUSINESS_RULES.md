@@ -97,7 +97,7 @@ entries mentioning `canRejectBudget`/`reject`.*
 | BR-34 | Badge counts active (unresolved, uncleared) tasks regardless of read state | `GET /api/v1/me`; `listByUser` | K-001 |
 | BR-35 | Pending actionable tasks cannot be manually deleted; only resolved history archived | `archiveResolved` (refuses unresolved) | K-001 |
 | BR-36 | No two ACTIVE actionable notifications for `(recipient, type, plan/entity)` | repository `create` (atomic SQL guard); mock mirror | **K-009** |
-| BR-37 | Workflow terminal step for a recipient resolves their task (`resolvedAt` + `resolvedBy`) | approval/finance/support/fiscal-year services | K-001 |
+| BR-37 | Workflow terminal step for a recipient resolves their task (`resolvedAt` + `resolvedBy`) | approval/finance/fiscal-year services (in-app support tickets removed — MVP email help only; Change #027) | K-001 |
 
 ## 7. Security & RBAC
 

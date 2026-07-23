@@ -123,7 +123,7 @@ src/
 ├── infrastructure/ di.ts (composition root), repositories (mock|sql),
 │                   session, startup validation (FROZEN), migrations registry
 ├── app/            Next.js App Router — (portal) pages + api/v1 (68 routes)
-├── components/     React UI (layout, budget, admin, support, ui primitives)
+├── components/     React UI (layout, budget, admin, ui primitives; help = mailto)
 ├── lib/            client-api, navigation, portal-access, security/*
 ├── middleware.ts   edge: same-origin/CSRF, rate limit, session + coarse RBAC
 └── instrumentation.ts  startup env+DB+DI validation (FROZEN)

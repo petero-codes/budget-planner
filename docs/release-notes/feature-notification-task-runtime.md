@@ -54,3 +54,14 @@ Revert the commit — no schema migration, no data loss, no business-rule change
 ## Follow-up work
 - Staging browser verification of the bell dropdown, deep-link focus, and badge live-update.
 - Branch also carries earlier notification-runtime / startup / governance WIP; review whether to split before the PR to `develop`.
+
+---
+
+## Addendum 2026-07-22 — MVP email support (Change #027)
+
+- **Problem:** In-app Report Issue / SupportIssue module delayed MVP focus.
+- **Change:** Removed support pages, APIs, service, repos, and tests. Help is `mailto:ict-support@kengen.co.ke`.
+- **Docs:** FEATURE_REGISTRY, WORKFLOWS WF-015 retired, DATABASE unused tables, DEPENDENCY_MAP, BUSINESS_RULES BR-37 note, K-011, RELEASE_CHECKLIST MVP gate.
+- **APIs removed:** `GET/POST /api/v1/support-issues`, `GET/PATCH /api/v1/support-issues/[id]`.
+- **Schema:** No migration; mig 009 tables retained unused.
+- **Rollback:** restore deleted files from git before Change #027.

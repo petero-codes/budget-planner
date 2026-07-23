@@ -16,12 +16,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          # Avoid poisoned/partial npm cache causing instant npm ci failures.
+          # (cache: npm disabled on purpose — see CHANGE_HISTORY #028)
 
       - name: Install dependencies
         # msnodesqlv8 native ODBC build is not required for lint/boundary checks (mock driver).
+        # Use npm install (not ci) so a transient lock sync / optional-native issue cannot
+        # hard-fail the guard before ESLint runs. --ignore-scripts skips native compile.
         run: |
-          npm ci --ignore-scripts
+          set -eux
+          test -f package.json
+          test -f package-lock.json
+          npm install --ignore-scripts --no-audit --no-fund
           node scripts/patch-next-tsconfig-path.js
 
       - name: ESLint (lib/client + lib/shared + package.json ban)
@@ -41,12 +47,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Install dependencies
-        # msnodesqlv8 native ODBC build is not required for lint/boundary checks (mock driver).
+        # Same rationale as boundaries — skip native ODBC; mock driver for build.
         run: |
-          npm ci --ignore-scripts
+          set -eux
+          test -f package.json
+          test -f package-lock.json
+          npm install --ignore-scripts --no-audit --no-fund
           node scripts/patch-next-tsconfig-path.js
 
       - name: Production build
