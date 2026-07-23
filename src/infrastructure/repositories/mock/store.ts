@@ -12,7 +12,6 @@ import type {
   FinanceQueueClaim,
   Notification,
   SapPackage,
-  SupportIssue,
   WorkflowHistoryEntry,
 } from "@/domain/entities";
 import {
@@ -51,8 +50,6 @@ export const mockStore = {
   audits: [] as AuditLogEntry[],
   notifications: [] as Notification[],
   submissionStatuses: [] as CostCenterSubmissionStatus[],
-  supportIssues: [] as SupportIssue[],
-  supportIssueSequences: new Map<number, number>(),
   passwordHashes: new Map<string, string>(),
 };
 
@@ -75,8 +72,6 @@ export function resetMockStore(): void {
   mockStore.audits = [];
   mockStore.notifications = [];
   mockStore.submissionStatuses = [];
-  mockStore.supportIssues = [];
-  mockStore.supportIssueSequences = new Map();
   mockStore.passwordHashes = new Map();
 }
 

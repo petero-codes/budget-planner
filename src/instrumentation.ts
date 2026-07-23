@@ -95,7 +95,6 @@ async function checkRegistration(): Promise<RegistrationCheck> {
       financeService: di.financeService,
       fiscalYearService: di.fiscalYearService,
       adminUserService: di.adminUserService,
-      supportIssueService: di.supportIssueService,
       departmentService: di.departmentService,
       costCenterService: di.costCenterService,
       submissionStatusService: di.submissionStatusService,

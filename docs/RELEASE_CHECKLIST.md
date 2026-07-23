@@ -6,6 +6,51 @@
 > of done (`definition-of-done.md`), or the release-note format (`release-notes/TEMPLATE.md`)
 > — it links to them. If a step here disagrees with governance, governance wins; fix this file.
 
+---
+
+## MVP Release Gate (current priority)
+
+**If every box below is checked, stop building and release to staging / production as planned.**  
+Do not add architecture, docs, renames, aliases, or new modules while this gate is open.
+
+### Automated
+
+- [ ] Build passes (`npm run build`)
+- [ ] Tests pass (`npm run test`)
+
+### Browser — core flows
+
+- [ ] Login works
+- [ ] Logout works
+- [ ] Create budget
+- [ ] Edit budget
+- [ ] Submit budget
+- [ ] Return budget
+- [ ] Approve budget
+- [ ] Finance claim
+- [ ] Finance finalize
+- [ ] Reports load
+- [ ] Budget category filter works (Recurrent / Major / CAPEX)
+- [ ] SAP export downloads
+- [ ] Notifications work
+- [ ] Audit logs recorded
+- [ ] Browser console has zero errors
+
+### Roles — each completes its journey without errors
+
+- [ ] System Admin
+- [ ] Budget Holder
+- [ ] Assistant Manager
+- [ ] Manager
+- [ ] General Manager
+- [ ] Finance Administrator
+
+### Staging
+
+- [ ] Staging passes (login → create → submit → approve → finance claim → finalize → reports → notifications → SAP)
+
+---
+
 Two independent gate sets, run in order:
 
 - **Gate A — merge a feature/bugfix/hotfix branch → `develop`** (per PR).

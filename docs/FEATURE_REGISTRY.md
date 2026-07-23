@@ -35,7 +35,7 @@ Owner = the subsystem in `.cursor/rules/frozen-subsystems.mdc`.
 | Master data (dept/CC/GL/users) | Code+Unit | Master Data (Active) | ✓ | ✓ | `master-data-service.ts`; `admin-user-service.ts` |
 | Audit trail (immutable) | Code+Unit | (cross-cutting) | ✓ | ✓ | ADR-011; INV-6/7/8 |
 | Reports (executive/finance) | Browser-pending | Reports (Active) | ~ | ~ | `executive-service.ts`; `dashboard-service.ts` |
-| Support issues | Code+Unit | Notification Engine (Active) | ✓ | ~ | `support-issue-service.ts` |
+| Support issues | **Removed (MVP)** — email `ict-support@kengen.co.ke` | — | — | Tables from mig 009 retained unused |
 | Startup validation & health | Service-verified | **Startup Validation (FROZEN)** | ✓ | ✓ | ADR-009; K-007; `database-health` route |
 | Development Toolkit | Code+Unit | Development Toolkit (Active) | ✓ | ~ | migration 008; triple-gated |
 | Attachments (upload UX/API) | Deferred | Approval Engine (Active) | ✓ | — | ADR-008; `open-decisions.md` |

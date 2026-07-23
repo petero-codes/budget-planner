@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "@/domain/entities";
 import { ChevronDown } from "lucide-react";
 import { apiSend } from "@/lib/client/client-api";
+import { SUPPORT_MAILTO } from "@/lib/shared/support-contact";
 
 export function UserDropdown({ user }: { user: User }) {
   const router = useRouter();
@@ -109,14 +110,14 @@ export function UserDropdown({ user }: { user: User }) {
               >
                 My Profile
               </Link>
-              <Link
-                href="/support"
+              <a
+                href={SUPPORT_MAILTO}
                 role="menuitem"
                 className="glass-menu-item text-kengen-navy"
                 onClick={close}
               >
-                Help
-              </Link>
+                Need help?
+              </a>
               <div className="my-1 border-t border-white/40" aria-hidden />
               <button
                 type="button"

@@ -10,6 +10,38 @@ lives in `CHANGELOG.md`; this log records *what/why/verified* at a glance.
 Governing policy: `docs/ENGINEERING_GOVERNANCE.md` → "Engineering Change Log
 Policy". Newest entries at the top.
 
+## Change #028 — Unblock PR CI (Docs Guard + Architecture Guard install)
+
+- Date: 2026-07-23
+- Author: agent
+- Subsystems: Development Toolkit (Active); documentation matrix only. Frozen: none.
+- Task / Reason: PR #3 failed Docs Guard (5 matrix violations after support removal) and Architecture Guard at Install / production build. Satisfy docs matrix for Change #027; harden CI install; omit `REPOSITORY_DRIVER=mock` on CI build; stub `msnodesqlv8` JS entry on Linux so `next build` can load `sql/pool` without a native `.node` binary.
+- Files: `docs/BUSINESS_RULES.md`, `ENGINEERING_BRAIN.md`, `DEPENDENCY_MAP.md`, `KNOWLEDGE_LOG.md` (K-011), `release-notes/feature-notification-task-runtime.md`, `.github/workflows/architecture-guard.yml`
+- Business rules changed: No (doc alignment; WF-015 already retired in product)
+- Knowledge: K-011 added; K-001 evidence re-verified
+- Verification: Code YES · Tests NO (docs/CI only) · Runtime pending CI · Docs YES
+- Rollback: revert this commit
+
+---
+
+## Change #027 — Remove in-app Issue Reporting (MVP email support)
+
+- Date: 2026-07-22
+- Author: agent
+- Subsystems: Presentation; Notification Engine (Active). Startup Validation (Frozen) — DI probe only (see Frozen note).
+- Task / Reason: MVP simplification — users report problems by email (`ict-support@kengen.co.ke`) instead of in-app tickets. Removes UI/API/services/repos/tests for SupportIssue. Migrations `009` left in place (already in schema history); tables unused. Adds short **MVP Release Gate** checklist at top of `docs/RELEASE_CHECKLIST.md` (browser/role/staging boxes only — no new infra).
+- Files deleted: support pages, API routes, `support-issue-service.ts`, `domain/support-issue.ts`, SQL/mock support repos, `support-issue-service.test.ts`, report-issue modal
+- Files modified: footer (mailto), user-dropdown Help, navigation, middleware, portal-access, DI, repository interfaces/mock store, notification destination test
+- Business rules changed: No (WF-015 retired from product surface; email-only)
+- APIs removed: `GET/POST /api/v1/support-issues`, `GET/PATCH /api/v1/support-issues/[id]`, `GET .../screenshot`
+- Tests: support-issue unit test removed; suite re-run
+- Docs: FEATURE_REGISTRY / CHANGE_HISTORY / RELEASE_CHECKLIST MVP gate / this entry
+- Verification: Code YES · Tests YES (163/163) · Runtime YES (build) · Docs YES
+- Frozen note: `instrumentation.ts` — removed DI probe for deleted `supportIssueService` (deployment requirement; build failed without it). Startup Validation remains frozen.
+- Rollback: restore deleted files from git history before this commit
+
+---
+
 ## Change #026 — `budgetCategory` domain rename + enriched catalog
 
 - Date: 2026-07-22

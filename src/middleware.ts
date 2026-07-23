@@ -47,7 +47,6 @@ const PORTAL_PREFIXES = [
   "/profile",
   "/admin",
   "/finance",
-  "/support",
   "/access-denied",
 ];
 
@@ -88,9 +87,6 @@ function portalAccessAllowed(pathname: string, claims: SessionClaims): boolean {
         hasPermission(claims, "admin.masterdata") ||
         hasPermission(claims, "admin.users")
       );
-    }
-    if (pathname === "/admin/support" || pathname.startsWith("/admin/support/")) {
-      return claims.roleCodes.includes("SystemAdmin");
     }
     return (
       hasPermission(claims, "admin.users") ||
@@ -237,8 +233,6 @@ export const config = {
     "/admin",
     "/finance/:path*",
     "/finance",
-    "/support/:path*",
-    "/support",
     "/access-denied/:path*",
     "/access-denied",
   ],

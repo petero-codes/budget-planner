@@ -16,6 +16,7 @@ import type {
   GlAccount,
   User,
 } from "@/domain/entities";
+import type { ExistingActiveBudget } from "@/domain/existing-active-budget";
 import { BUDGET_STATUS_LABEL } from "@/domain/value-objects/budget-status";
 import { ApiError, apiGet, apiSend } from "@/lib/client-api";
 import { GlassSelect } from "@/components/ui/glass-select";

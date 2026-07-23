@@ -1285,5 +1285,3 @@ export {
   SqlBudgetAttachmentCategoryRepository,
   SqlSapPackageRepository,
 } from "./lineage-repos";
-
-export { SqlSupportIssueRepository } from "./support-issue-repo";

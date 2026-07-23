@@ -574,5 +574,3 @@ export {
   MockSapPackageRepository,
 };
 
-export { MockSupportIssueRepository } from "./support-issue-repo";
-

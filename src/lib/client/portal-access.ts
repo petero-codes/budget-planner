@@ -37,19 +37,10 @@ export function canAccessPath(
         user.permissionCodes.includes("admin.users")
       );
     }
-    if (
-      pathname === "/admin/support" ||
-      pathname.startsWith("/admin/support/")
-    ) {
-      return user.roleCodes.includes("SystemAdmin");
-    }
     return (
       user.permissionCodes.includes("admin.users") ||
       user.permissionCodes.includes("admin.masterdata")
     );
-  }
-  if (pathname === "/support" || pathname.startsWith("/support/")) {
-    return true;
   }
   if (pathname === "/finance" || pathname.startsWith("/finance/")) {
     return user.permissionCodes.includes("finance.view");

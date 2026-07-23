@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-22 — Remove in-app Issue Reporting (MVP)
+
+### Removed
+
+- In-app Report Issue modal, My Issues / admin support pages, and `/api/v1/support-issues*` APIs.
+- Support issue application service, repositories, and unit tests.
+
+### Changed
+
+- Footer and account menu now point users to email support: `ict-support@kengen.co.ke` (`mailto:`).
+- SQL migration `009` tables remain in the database for history; application no longer reads/writes them.
+
 ## 2026-07-22 — Budget Category domain rename
 
 ### BREAKING CHANGE

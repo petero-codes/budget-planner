@@ -157,8 +157,6 @@ describe("notification read lifecycle (click → read → navigate)", () => {
       "/finance",
       "/admin/users/",
       "/admin/fiscal-years",
-      "/admin/support",
-      "/support",
     ];
     for (const n of mockStore.notifications) {
       const dest = notificationDestination(n);

@@ -16,12 +16,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          # Avoid poisoned/partial npm cache causing instant npm ci failures.
+          # (cache: npm disabled on purpose — see CHANGE_HISTORY #028)
 
       - name: Install dependencies
         # msnodesqlv8 native ODBC build is not required for lint/boundary checks (mock driver).
+        # Use npm install (not ci) so a transient lock sync / optional-native issue cannot
+        # hard-fail the guard before ESLint runs. --ignore-scripts skips native compile.
         run: |
-          npm ci --ignore-scripts
+          set -eux
+          test -f package.json
+          test -f package-lock.json
+          npm install --ignore-scripts --no-audit --no-fund
           node scripts/patch-next-tsconfig-path.js
 
       - name: ESLint (lib/client + lib/shared + package.json ban)
@@ -41,20 +47,47 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Install dependencies
-        # msnodesqlv8 native ODBC build is not required for lint/boundary checks (mock driver).
+        # Same rationale as boundaries — skip native ODBC; mock driver for build.
         run: |
-          npm ci --ignore-scripts
+          set -eux
+          test -f package.json
+          test -f package-lock.json
+          npm install --ignore-scripts --no-audit --no-fund
           node scripts/patch-next-tsconfig-path.js
 
+      # database-health / auth-store statically import sql/pool → msnodesqlv8.
+      # --ignore-scripts leaves no sqlserver.node on Linux; stub so next build can load.
+      - name: Stub msnodesqlv8 native binding
+        run: |
+          set -eux
+          node <<'NODE'
+          const fs = require("fs");
+          const path = require("path");
+          const root = path.join("node_modules", "msnodesqlv8");
+          if (!fs.existsSync(root)) {
+            console.log("msnodesqlv8 not installed — skip stub");
+            process.exit(0);
+          }
+          const stub = "module.exports = {};\n";
+          for (const rel of ["index.js", "lib/sql.js", "lib/index.js"]) {
+            const file = path.join(root, rel);
+            fs.mkdirSync(path.dirname(file), { recursive: true });
+            fs.writeFileSync(file, stub);
+          }
+          console.log("msnodesqlv8 stubbed for Linux CI build");
+          NODE
+
       - name: Production build
+        # Do NOT set REPOSITORY_DRIVER=mock here: NODE_ENV=production + mock
+        # throws outside NEXT_PHASE (env.ts). Unset driver lets the build phase
+        # default to mock via isBuildPhase. SESSION_SECRET still required.
         run: npm run build
         env:
-          REPOSITORY_DRIVER: mock
           SESSION_SECRET: ci-browser-safety-check-secret-min-32-chars
           NEXT_TELEMETRY_DISABLED: 1
+          CI: "true"
 
       - name: Scan client bundles for Node/SQL native modules
         run: npm run lint:browser

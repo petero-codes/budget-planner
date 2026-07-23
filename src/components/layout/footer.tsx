@@ -1,41 +1,31 @@
 "use client";
 
-import { useState } from "react";
-import { MessageSquareWarning } from "lucide-react";
+import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  ReportIssueModal,
-  type ReportIssueContext,
-} from "@/components/support/report-issue-modal";
-
-type Props = {
-  context?: ReportIssueContext;
-};
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/lib/shared/support-contact";
 
 /**
- * Portal footer — Report Issue opens the in-app support ticket modal.
+ * Portal footer — Need help? opens the user's mail client (MVP: no in-app tickets).
  */
-export function Footer({ context }: Props) {
-  const [open, setOpen] = useState(false);
-
+export function Footer() {
   return (
     <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-400/30 bg-white px-4 py-2 text-meta text-neutral-700">
       <span>© KenGen · ICT Budgeting Portal</span>
-      <Button
-        type="button"
-        variant="secondary"
-        size="compact"
-        icon={MessageSquareWarning}
-        aria-label="Report an issue"
-        onClick={() => setOpen(true)}
-      >
-        Report an issue
-      </Button>
-      <ReportIssueModal
-        open={open}
-        onClose={() => setOpen(false)}
-        context={context}
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-neutral-600">Need help?</span>
+        <Button
+          type="button"
+          variant="secondary"
+          size="compact"
+          icon={Mail}
+          aria-label={`Email support at ${SUPPORT_EMAIL}`}
+          onClick={() => {
+            window.location.href = SUPPORT_MAILTO;
+          }}
+        >
+          {SUPPORT_EMAIL}
+        </Button>
+      </div>
     </footer>
   );
 }

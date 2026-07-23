@@ -25,7 +25,6 @@ import {
   MockNotificationRepository,
   MockSapPackageRepository,
   MockSubmissionStatusRepository,
-  MockSupportIssueRepository,
   MockUnitOfWork,
   MockUserRepository,
   MockWorkflowHistoryRepository,
@@ -84,7 +83,6 @@ function buildBundle(): RepositoryBundle {
     attachments: new MockBudgetAttachmentRepository(),
     attachmentCategories: new MockBudgetAttachmentCategoryRepository(),
     sapPackages: new MockSapPackageRepository(),
-    supportIssues: new MockSupportIssueRepository(),
     uow: new MockUnitOfWork(),
   };
 }

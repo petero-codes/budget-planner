@@ -91,10 +91,11 @@ submissionStatusService ────────────┤
 adminUserService ───────────────────┤
 executiveService ───────────────────┤
 sapComplianceService ───────────────┤
-supportIssueService ────────────────┤
 developmentToolkitService ──────────┘  depends on: the whole bundle + fiscalYearService +
                                                     getRepositoryDriver + package version
 ```
+
+> **MVP note (Change #027):** `supportIssueService` removed — Help uses `mailto:ict-support@kengen.co.ke` (`src/lib/shared/support-contact.ts`).
 
 **Service-to-service edges (the only ones that exist):**
 

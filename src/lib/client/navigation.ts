@@ -16,7 +16,6 @@ import {
   CalendarRange,
   Landmark,
   Wrench,
-  LifeBuoy,
 } from "lucide-react";
 
 export interface NavItem {
@@ -39,19 +38,13 @@ export function getNavItems(user: User, options?: NavOptions): NavItem[] {
   if (isSystemAdmin) {
     const items: NavItem[] = [
       { href: "/admin", label: "Administration", icon: Settings, permission: "admin.users" },
-      {
-        href: "/admin/support",
-        label: "Support Issues",
-        icon: LifeBuoy,
-        permission: "admin.users",
-      },
       { href: "/audit", label: "Audit Trail", icon: ScrollText, permission: "audit.view" },
       { href: "/profile", label: "My Profile", icon: UserRound },
     ];
     if (toolkitOn) {
       items.splice(1, 0, {
         href: "/admin/development",
-        label: "Development Tools",
+        label: "Development Toolkit",
         icon: Wrench,
       });
     }
@@ -65,7 +58,7 @@ export function getNavItems(user: User, options?: NavOptions): NavItem[] {
     const items: NavItem[] = [
       {
         href: "/finance",
-        label: "Finance Dashboard",
+        label: "Finance Queue",
         icon: Landmark,
         permission: "finance.view",
       },
@@ -77,7 +70,6 @@ export function getNavItems(user: User, options?: NavOptions): NavItem[] {
       },
       { href: "/reports", label: "Reports", icon: BarChart3, permission: "report.view" },
       { href: "/audit", label: "Audit Trail", icon: ScrollText, permission: "audit.view" },
-      { href: "/support", label: "My Issues", icon: LifeBuoy },
       { href: "/profile", label: "My Profile", icon: UserRound },
     ];
     return items.filter(
@@ -119,7 +111,6 @@ export function getNavItems(user: User, options?: NavOptions): NavItem[] {
       permission: "audit.view",
     },
     { href: "/notifications", label: "Notifications", icon: Bell },
-    { href: "/support", label: "My Issues", icon: LifeBuoy },
     { href: "/profile", label: "My Profile", icon: UserRound },
   ];
 

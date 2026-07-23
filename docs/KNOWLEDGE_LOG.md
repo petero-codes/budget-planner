@@ -47,10 +47,10 @@ canonical docs (`domain-model.md`, `permission-matrix.md`, dated headers).
 ### K-001 — Notification lifecycle (task, not message)
 - Fact: A notification stays **active** until the represented work is complete. Clicking sets `readAt` and navigates to `targetUrl` but does **not** resolve it; the workflow action sets `resolvedAt` + `resolvedBy`. The header badge counts unresolved tasks (read or unread). Pending actionable tasks cannot be manually deleted; only resolved history can be archived.
 - Reason: Notifications model assigned work, so opening ≠ handling.
-- Evidence: `src/domain/entities/index.ts` (`Notification`, `isActionableNotification`); `src/application/notification-task-actions.ts` (`markNotificationRead`, `notificationDestination`); resolution in approval/finance/support/fiscal-year services; `tests/unit/notification-read-lifecycle.test.ts`.
+- Evidence: `src/domain/entities/index.ts` (`Notification`, `isActionableNotification`); `src/application/notification-task-actions.ts` (`markNotificationRead`, `notificationDestination`); resolution in approval/finance/fiscal-year services; `tests/unit/notification-read-lifecycle.test.ts`.
 - ADR: None (behavioral; recorded in CHANGE_HISTORY #001)
 - Status: Verified in code
-- Last verified: 2026-07-18
+- Last verified: 2026-07-23
 
 ### K-002 — Active Budget Version & uniqueness
 - Fact: An **active** version is one editable or progressing: statuses `Draft`, `InApproval`, `ReturnedForRevision`, `PendingFinanceReview`, `Claimed`. Only **one** active version may exist per **Cost Centre + Fiscal Year + Original Budget Type** (Budget Lineage). `Finalized`/legacy `Approved` are immutable & inactive; `Rejected` is inactive.
@@ -75,6 +75,14 @@ canonical docs (`domain-model.md`, `permission-matrix.md`, dated headers).
 - ADR: None (product rule — Change #024)
 - Status: Verified via code
 - Last verified: 2026-07-22
+
+### K-011 — MVP support is email-only (no in-app tickets)
+- Fact: Users report problems via `mailto:ict-support@kengen.co.ke` (`SUPPORT_MAILTO` in `src/lib/shared/support-contact.ts`). In-app SupportIssue UI/API/services are **removed**. Migration `009` tables `SupportIssues` / `SupportIssueSequence` remain in the schema but are unused.
+- Reason: MVP simplification — ship workflow product; ticketing is out of scope.
+- Evidence: footer + user-dropdown Help links; deleted `support-issue-service.ts` / `/api/v1/support-issues*`; FEATURE_REGISTRY "Removed (MVP)"; CHANGE_HISTORY #027.
+- ADR: None
+- Status: Verified in code
+- Last verified: 2026-07-23
 
 ### K-004 — Finance cannot permanently reject
 - Fact: Finance may **return** or **finalize** (and claim/release) — never permanently reject. Only the **GM** may permanently reject a budget.

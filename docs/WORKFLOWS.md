@@ -113,7 +113,7 @@ WF-002 Submission ─► WF-003 Approval ─► WF-006 Claim ─► WF-007 Final
 | WF-012 | Budget amendment | Approval Engine | `BudgetPlanService.createAmendment` | Yes |
 | WF-013 | Fiscal year lifecycle | Master Data | `FiscalYearService` | Yes |
 | WF-014 | Administration (users/roles) | Master Data | `AdminUserService` | Yes |
-| WF-015 | Support ticket | Notification Engine | `SupportIssueService` | Med |
+| WF-015 | Support ticket | **Retired (MVP)** | Email `ict-support@kengen.co.ke` | — |
 | WF-016 | Authentication & session | Authentication & Session Security | auth routes + `session.ts` | Yes |
 | WF-017 | Master data | Master Data | `master-data-service.ts` | Yes |
 | WF-018 | SAP export | SAP Export | `SapComplianceService` | Yes |
