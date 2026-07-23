@@ -58,11 +58,15 @@ jobs:
           node scripts/patch-next-tsconfig-path.js
 
       - name: Production build
+        # Do NOT set REPOSITORY_DRIVER=mock here: NODE_ENV=production + mock
+        # throws outside NEXT_PHASE (env.ts). Unset driver lets the build phase
+        # default to mock via isBuildPhase. SESSION_SECRET still required.
         run: npm run build
         env:
-          REPOSITORY_DRIVER: mock
           SESSION_SECRET: ci-browser-safety-check-secret-min-32-chars
           NEXT_TELEMETRY_DISABLED: 1
+          # Ensure Linux CI never loads the native ODBC binding during compile.
+          CI: "true"
 
       - name: Scan client bundles for Node/SQL native modules
         run: npm run lint:browser
