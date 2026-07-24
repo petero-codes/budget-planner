@@ -4,6 +4,8 @@
 can navigate the codebase without reverse-engineering it. Detailed companion to
 `docs/ENGINEERING_BRAIN.md`. Evidence: exact paths. Uncertain items marked **UNKNOWN**.
 
+**Quick category index:** `docs/TRACKING_MAP.md` — Frontend · UI · Backend · Explanation.
+
 **Stack:** Next.js 14 (App Router) · TypeScript · React 18 · Tailwind · Zod · Vitest ·
 SQL Server via `msnodesqlv8`/`mssql`. Path alias `@/*` → `src/*`.
 

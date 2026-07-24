@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PageShell } from "@/components/shared/page-shell";
 import { StatusChip } from "@/components/shared/status-chip";
 import { ActionLink, Button } from "@/components/ui/button";
+import { DataTable } from "@/components/ui/data-table";
 import { ApiError, apiGet, apiSend } from "@/lib/client-api";
 import {
   type BudgetCategoryCode,
@@ -435,69 +436,84 @@ export default function FinanceDashboardPage() {
         ) : null}
       </div>
 
-      <div className="mb-4 overflow-x-auto rounded border border-neutral-400/30 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-400/20 bg-neutral-100 px-3 py-2">
-          <p className="text-meta font-medium uppercase text-neutral-700">
-            Finance inbox ({filtered.length})
-          </p>
-          <input
-            className="glass-select w-full max-w-xs"
-            placeholder="Search…"
-            aria-label="Search finance inbox"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        {filtered.length === 0 ? (
-          <p className="px-3 py-4 text-meta text-neutral-700">
-            No budgets found.
-          </p>
-        ) : (
-          <table className="w-full text-left text-body">
-            <thead className="sticky top-0 bg-neutral-100 text-meta uppercase text-neutral-700">
-              <tr>
-                <th className="px-2 py-1.5">Budget #</th>
-                <th className="px-2 py-1.5">Category</th>
-                <th className="px-2 py-1.5">Status</th>
-                <th className="px-2 py-1.5">Employee</th>
-                <th className="px-2 py-1.5">Cost center</th>
-                <th className="px-2 py-1.5">Amount</th>
-                <th className="px-2 py-1.5">SLA</th>
-                <th className="px-2 py-1.5">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => (
-                <tr
-                  key={r.planId}
-                  className="border-t border-neutral-400/20 hover:bg-neutral-50"
-                >
-                  <td className="px-2 py-1.5 font-medium">
-                    {r.budgetNumber ?? r.planId.slice(0, 8)}
-                  </td>
-                  <td className="px-2 py-1.5">{budgetCategoryLabel(r.budgetCategory)}</td>
-                  <td className="px-2 py-1.5">
-                    <StatusChip status={r.status} />
-                  </td>
-                  <td className="px-2 py-1.5">{r.employee}</td>
-                  <td className="px-2 py-1.5">{r.costCenter}</td>
-                  <td className="px-2 py-1.5">{formatCurrency(r.amount)}</td>
-                  <td className="px-2 py-1.5 text-meta">
-                    {r.escalationStatus !== "None" ? (
-                      <span className="text-kengen-amber">{r.escalationStatus}</span>
-                    ) : r.claimDueAt ? (
-                      `Claim due ${new Date(r.claimDueAt).toLocaleDateString()}`
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-2 py-1.5">{renderActions(r)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <DataTable
+        className="mb-4"
+        title="Finance inbox"
+        rows={filtered}
+        rowKey={(r) => r.planId}
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search inbox…"
+        selectedRowKey={selectedPlanId}
+        emptyTitle="No budgets found"
+        emptyDescription="Try clearing search or the category filter."
+        pageSize={12}
+        columns={[
+          {
+            id: "budgetNumber",
+            header: "Budget #",
+            sortable: true,
+            sortValue: (r) => r.budgetNumber ?? r.planId,
+            cell: (r) => (
+              <span className="font-medium">
+                {r.budgetNumber ?? r.planId.slice(0, 8)}
+              </span>
+            ),
+          },
+          {
+            id: "category",
+            header: "Category",
+            sortable: true,
+            sortValue: (r) => budgetCategoryLabel(r.budgetCategory),
+            cell: (r) => budgetCategoryLabel(r.budgetCategory),
+          },
+          {
+            id: "status",
+            header: "Status",
+            sortable: true,
+            sortValue: (r) => r.status,
+            cell: (r) => <StatusChip status={r.status} />,
+          },
+          {
+            id: "employee",
+            header: "Employee",
+            sortable: true,
+            sortValue: (r) => r.employee,
+            cell: (r) => r.employee,
+          },
+          {
+            id: "costCenter",
+            header: "Cost center",
+            sortable: true,
+            sortValue: (r) => r.costCenter,
+            cell: (r) => r.costCenter,
+          },
+          {
+            id: "amount",
+            header: "Amount",
+            sortable: true,
+            sortValue: (r) => r.amount,
+            className: "tabular-nums",
+            cell: (r) => formatCurrency(r.amount),
+          },
+          {
+            id: "sla",
+            header: "SLA",
+            cell: (r) => (
+              <span className="text-meta">
+                {r.escalationStatus !== "None" ? (
+                  <span className="text-kengen-amber">{r.escalationStatus}</span>
+                ) : r.claimDueAt ? (
+                  `Claim due ${new Date(r.claimDueAt).toLocaleDateString()}`
+                ) : (
+                  "—"
+                )}
+              </span>
+            ),
+          },
+        ]}
+        actions={(r) => renderActions(r)}
+      />
 
       {returnTarget ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

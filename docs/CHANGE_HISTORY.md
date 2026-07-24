@@ -10,6 +10,50 @@ lives in `CHANGELOG.md`; this log records *what/why/verified* at a glance.
 Governing policy: `docs/ENGINEERING_GOVERNANCE.md` → "Engineering Change Log
 Policy". Newest entries at the top.
 
+## Change #031 — Project tracking map (docs only)
+
+- Date: 2026-07-24
+- Author: agent
+- Subsystems: Documentation (Active). Frozen: none.
+- Task / Reason: Add `docs/TRACKING_MAP.md` — category index (Frontend / UI / Backend / Explanation) for easier file tracking without moving source trees (Next.js routes + architecture guards).
+- Files: `docs/TRACKING_MAP.md` (new); `docs/FILE_INDEX.md`, `README.md` (links); `.gitignore` (ignore `.kilocode/`, `*.backup`)
+- Business rules changed: No
+- Knowledge: No permanent knowledge introduced
+- Verification: Code N/A · Tests N/A · Runtime N/A · Docs YES
+- Rollback: revert this commit
+
+---
+
+## Change #030 — DataTable system pass (presentation only)
+
+- Date: 2026-07-23
+- Author: agent
+- Subsystems: Presentation (Active). Frozen: none.
+- Task / Reason: Unified enterprise DataTable (search, filter slot, sort, sticky header, hover, pagination, skeleton, empty, actions). Migrated Finance inbox, My Budgets, and Reports tables. No API / workflow / permission / DB / route changes.
+- Files: `src/components/ui/data-table.tsx` (new); `src/app/(portal)/finance/page.tsx`, `budgets/page.tsx`, `reports/page.tsx`; `tests/unit/data-table.test.ts`
+- Migrated tables: Finance inbox · My Budgets · Reports (detail / grouped / turnaround)
+- Business rules changed: No
+- Knowledge: No permanent knowledge introduced
+- Verification: Code YES · Tests YES (164/164) · Lint YES · Build YES · Runtime pending (browser) · Docs YES
+- Screenshots: Manual before/after in browser (Finance / Budgets / Reports) — not committed
+- Rollback: revert this commit
+
+---
+
+## Change #029 — MVP Release Gate checklist expanded (UAT tracking)
+
+- Date: 2026-07-23
+- Author: agent
+- Subsystems: Documentation only. Frozen: none.
+- Task / Reason: Align MVP gate with Phase 1 UAT order (auth → lifecycle → finance → reports → notifications → audit → SAP → browser → roles); tick only verified engineering items; record upcoming finance/admin dashboard polish + audit visibility decision.
+- Files: `docs/RELEASE_CHECKLIST.md`
+- Business rules changed: No
+- Knowledge: No permanent knowledge introduced
+- Verification: Code N/A · Tests YES (163/163) · Runtime NO · Docs YES
+- Rollback: revert this commit
+
+---
+
 ## Change #028 — Unblock PR CI (Docs Guard + Architecture Guard install)
 
 - Date: 2026-07-23

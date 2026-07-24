@@ -8,6 +8,7 @@ import { PageShell } from "@/components/shared/page-shell";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusChip } from "@/components/shared/status-chip";
 import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/ui/data-table";
 import { GlassSelect } from "@/components/ui/glass-select";
 import { apiGet } from "@/lib/client-api";
 import {
@@ -441,112 +442,198 @@ export default function ReportsPage() {
       ) : null}
 
       {filtered.length === 0 ? (
-        <EmptyState fill title="No budgets found" />
+        <EmptyState
+          fill
+          title="No budgets found"
+          description="Adjust filters to see report rows."
+        />
       ) : view === "budgetCategory" ||
         view === "department" ||
         view === "costCenter" ||
         view === "gl" ? (
-        <div className="flex-1 overflow-x-auto rounded border border-neutral-400/30 bg-white">
-          <table className="w-full text-left text-body">
-            <thead className="sticky top-0 bg-neutral-100 text-meta uppercase text-neutral-700">
-              <tr>
-                <th className="px-2 py-1.5">
-                  {view === "budgetCategory"
-                    ? BUDGET_CATEGORY_COLUMN_LABEL
-                    : view === "department"
-                      ? "Department"
-                      : view === "costCenter"
-                        ? "Cost Center"
-                        : "GL Account"}
-                </th>
-                <th className="px-2 py-1.5">
-                  {view === "gl" ? "Lines" : "Budgets"}
-                </th>
-                <th className="px-2 py-1.5">Requested</th>
-                <th className="px-2 py-1.5">Approved</th>
-              </tr>
-            </thead>
-            <tbody>
-              {grouped.map((g) => (
-                <tr key={g.key} className="border-t border-neutral-400/20">
-                  <td className="px-2 py-1.5">{g.key}</td>
-                  <td className="px-2 py-1.5">{g.count}</td>
-                  <td className="px-2 py-1.5">{formatCurrency(g.requested)}</td>
-                  <td className="px-2 py-1.5">{formatCurrency(g.approved)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          className="flex-1"
+          title={
+            view === "budgetCategory"
+              ? "By category"
+              : view === "department"
+                ? "By department"
+                : view === "costCenter"
+                  ? "By cost center"
+                  : "By GL"
+          }
+          rows={grouped}
+          rowKey={(g) => g.key}
+          pageSize={15}
+          searchFilter={(g, term) => g.key.toLowerCase().includes(term)}
+          searchPlaceholder="Search groups…"
+          emptyTitle="No groups found"
+          columns={[
+            {
+              id: "key",
+              header:
+                view === "budgetCategory"
+                  ? BUDGET_CATEGORY_COLUMN_LABEL
+                  : view === "department"
+                    ? "Department"
+                    : view === "costCenter"
+                      ? "Cost Center"
+                      : "GL Account",
+              sortable: true,
+              sortValue: (g) => g.key,
+              cell: (g) => g.key,
+            },
+            {
+              id: "count",
+              header: view === "gl" ? "Lines" : "Budgets",
+              sortable: true,
+              sortValue: (g) => g.count,
+              className: "tabular-nums",
+              cell: (g) => g.count,
+            },
+            {
+              id: "requested",
+              header: "Requested",
+              sortable: true,
+              sortValue: (g) => g.requested,
+              className: "tabular-nums",
+              cell: (g) => formatCurrency(g.requested),
+            },
+            {
+              id: "approved",
+              header: "Approved",
+              sortable: true,
+              sortValue: (g) => g.approved,
+              className: "tabular-nums",
+              cell: (g) => formatCurrency(g.approved),
+            },
+          ]}
+        />
       ) : view === "turnaround" ? (
-        <div className="flex-1 overflow-x-auto rounded border border-neutral-400/30 bg-white">
-          <p className="border-b border-neutral-400/20 px-3 py-2 text-body">
+        <div className="flex flex-1 flex-col gap-0">
+          <p className="rounded-t border border-b-0 border-neutral-400/30 bg-white px-3 py-2 text-body">
             Average turnaround (submission → final approval):{" "}
             <strong>{turnaround.avg} days</strong> over {turnaround.rows.length}{" "}
             approved budget(s)
           </p>
-          <table className="w-full text-left text-body">
-            <thead className="sticky top-0 bg-neutral-100 text-meta uppercase text-neutral-700">
-              <tr>
-                <th className="px-2 py-1.5">Cost Center</th>
-                <th className="px-2 py-1.5">FY</th>
-                <th className="px-2 py-1.5">Submitted</th>
-                <th className="px-2 py-1.5">Approved</th>
-                <th className="px-2 py-1.5">Days</th>
-              </tr>
-            </thead>
-            <tbody>
-              {turnaround.rows.map((r) => (
-                <tr key={r.plan.id} className="border-t border-neutral-400/20">
-                  <td className="px-2 py-1.5">{ccName(r.plan.costCenterId)}</td>
-                  <td className="px-2 py-1.5">
-                    {yearLabel(r.plan.fiscalYearId)}
-                  </td>
-                  <td className="px-2 py-1.5">
-                    {r.plan.submittedAt
-                      ? new Date(r.plan.submittedAt).toLocaleDateString()
-                      : "—"}
-                  </td>
-                  <td className="px-2 py-1.5">
-                    {new Date(r.plan.updatedAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-2 py-1.5">{r.days}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            className="flex-1 !rounded-t-none"
+            title="Turnaround"
+            rows={turnaround.rows}
+            rowKey={(r) => r.plan.id}
+            pageSize={15}
+            searchFilter={(r, term) =>
+              ccName(r.plan.costCenterId).toLowerCase().includes(term) ||
+              String(yearLabel(r.plan.fiscalYearId)).includes(term)
+            }
+            searchPlaceholder="Search turnaround…"
+            emptyTitle="No turnaround data"
+            columns={[
+              {
+                id: "cc",
+                header: "Cost Center",
+                sortable: true,
+                sortValue: (r) => ccName(r.plan.costCenterId),
+                cell: (r) => ccName(r.plan.costCenterId),
+              },
+              {
+                id: "fy",
+                header: "FY",
+                sortable: true,
+                sortValue: (r) => yearLabel(r.plan.fiscalYearId),
+                cell: (r) => yearLabel(r.plan.fiscalYearId),
+              },
+              {
+                id: "submitted",
+                header: "Submitted",
+                sortable: true,
+                sortValue: (r) => r.plan.submittedAt ?? "",
+                cell: (r) =>
+                  r.plan.submittedAt
+                    ? new Date(r.plan.submittedAt).toLocaleDateString()
+                    : "—",
+              },
+              {
+                id: "approved",
+                header: "Approved",
+                sortable: true,
+                sortValue: (r) => r.plan.updatedAt,
+                cell: (r) => new Date(r.plan.updatedAt).toLocaleDateString(),
+              },
+              {
+                id: "days",
+                header: "Days",
+                sortable: true,
+                sortValue: (r) => r.days,
+                className: "tabular-nums",
+                cell: (r) => r.days,
+              },
+            ]}
+          />
         </div>
       ) : (
-        <div className="flex-1 overflow-x-auto rounded border border-neutral-400/30 bg-white">
-          <table className="w-full text-left text-body">
-            <thead className="sticky top-0 bg-neutral-100 text-meta uppercase text-neutral-700">
-              <tr>
-                <th className="px-2 py-1.5">FY</th>
-                <th className="px-2 py-1.5">Department</th>
-                <th className="px-2 py-1.5">Cost Center</th>
-                <th className="px-2 py-1.5">{BUDGET_CATEGORY_COLUMN_LABEL}</th>
-                <th className="px-2 py-1.5">Status</th>
-                <th className="px-2 py-1.5">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((p) => (
-                <tr key={p.id} className="border-t border-neutral-400/20">
-                  <td className="px-2 py-1.5">{yearLabel(p.fiscalYearId)}</td>
-                  <td className="px-2 py-1.5">{deptName(p.costCenterId)}</td>
-                  <td className="px-2 py-1.5">{ccName(p.costCenterId)}</td>
-                  <td className="px-2 py-1.5">{budgetCategoryLabel(p.budgetCategory)}</td>
-                  <td className="px-2 py-1.5">
-                    <StatusChip status={p.status} />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    {formatCurrency(p.lines.reduce((s, l) => s + l.amount, 0))}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          className="flex-1"
+          title="Budget detail"
+          rows={filtered}
+          rowKey={(p) => p.id}
+          pageSize={15}
+          searchFilter={(p, term) =>
+            deptName(p.costCenterId).toLowerCase().includes(term) ||
+            ccName(p.costCenterId).toLowerCase().includes(term) ||
+            budgetCategoryLabel(p.budgetCategory).toLowerCase().includes(term) ||
+            p.status.toLowerCase().includes(term) ||
+            String(yearLabel(p.fiscalYearId)).includes(term)
+          }
+          searchPlaceholder="Search detail rows…"
+          emptyTitle="No budgets found"
+          columns={[
+            {
+              id: "fy",
+              header: "FY",
+              sortable: true,
+              sortValue: (p) => yearLabel(p.fiscalYearId),
+              cell: (p) => yearLabel(p.fiscalYearId),
+            },
+            {
+              id: "dept",
+              header: "Department",
+              sortable: true,
+              sortValue: (p) => deptName(p.costCenterId),
+              cell: (p) => deptName(p.costCenterId),
+            },
+            {
+              id: "cc",
+              header: "Cost Center",
+              sortable: true,
+              sortValue: (p) => ccName(p.costCenterId),
+              cell: (p) => ccName(p.costCenterId),
+            },
+            {
+              id: "category",
+              header: BUDGET_CATEGORY_COLUMN_LABEL,
+              sortable: true,
+              sortValue: (p) => budgetCategoryLabel(p.budgetCategory),
+              cell: (p) => budgetCategoryLabel(p.budgetCategory),
+            },
+            {
+              id: "status",
+              header: "Status",
+              sortable: true,
+              sortValue: (p) => p.status,
+              cell: (p) => <StatusChip status={p.status} />,
+            },
+            {
+              id: "total",
+              header: "Total",
+              sortable: true,
+              sortValue: (p) => p.lines.reduce((s, l) => s + l.amount, 0),
+              className: "tabular-nums",
+              cell: (p) =>
+                formatCurrency(p.lines.reduce((s, l) => s + l.amount, 0)),
+            },
+          ]}
+        />
       )}
       </>
       ) : null}

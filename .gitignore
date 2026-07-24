@@ -30,9 +30,11 @@ cache/
 *.db
 database.db
 
-# IDE
+# IDE / agent tooling
 .vscode/
 .idea/
+.kilocode/
+*.backup
 
 # OS
 .DS_Store

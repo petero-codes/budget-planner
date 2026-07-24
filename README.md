@@ -67,6 +67,8 @@ Requires **ODBC Driver 17 for SQL Server** (`msnodesqlv8`).
 
 | Document | Purpose |
 |---|---|
+| **`docs/TRACKING_MAP.md`** | **Find files by category:** Frontend · UI · Backend · Explanation |
+| `docs/FILE_INDEX.md` | Full repository file inventory |
 | `docs/ENGINEERING_GOVERNANCE.md` | Process, milestones, documentation consistency |
 | `docs/ARCHITECTURE_DECISIONS.md` | ADR log (locked decisions) |
 | `docs/definition-of-done.md` | Completion checklist |
