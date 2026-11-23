@@ -2,9 +2,9 @@
 -- Requires SQL Server mixed-mode authentication (SQL logins enabled).
 -- Seed/admin scripts may continue to use a privileged Trusted_Connection login.
 --
--- Default local password (override before production): BudgetOps_App_2026!
+-- Default local password placeholder (override before production): <STRONG_DB_PASSWORD_HERE>
 -- Connection string example:
---   Server=localhost\SQLEXPRESS;Database=BudgetOperations;User Id=app_budget_ops;Password=BudgetOps_App_2026!;TrustServerCertificate=True;
+--   Server=localhost\SQLEXPRESS;Database=BudgetOperations;User Id=app_budget_ops;Password=<STRONG_DB_PASSWORD_HERE>;TrustServerCertificate=True;
 
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
@@ -16,7 +16,7 @@ GO
 -- Server login (no-op if already present)
 IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'app_budget_ops')
 BEGIN
-  CREATE LOGIN [app_budget_ops] WITH PASSWORD = N'BudgetOps_App_2026!',
+  CREATE LOGIN [app_budget_ops] WITH PASSWORD = N'<STRONG_DB_PASSWORD_HERE>',
     CHECK_POLICY = ON,
     CHECK_EXPIRATION = OFF;
 END

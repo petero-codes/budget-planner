@@ -1,7 +1,7 @@
 /**
  * Gives seeded users an initial password and marks their email verified,
  * so pre-existing accounts can sign in with the auth module.
- * Usage: npm run db:passwords  (default password: KenGen@2026)
+ * Usage: SEED_USER_PASSWORD="<YOUR_DEV_PASSWORD>" npm run db:passwords
  */
 import sql from "mssql/msnodesqlv8";
 import { hashPassword } from "../src/lib/security/passwords";
@@ -14,7 +14,12 @@ const connectionString = [
   "TrustServerCertificate=Yes",
 ].join(";");
 
-const DEFAULT_PASSWORD = process.env.SEED_USER_PASSWORD ?? "KenGen@2026";
+const DEFAULT_PASSWORD = process.env.SEED_USER_PASSWORD;
+if (!DEFAULT_PASSWORD) {
+  console.error("ERROR: SEED_USER_PASSWORD environment variable is required.");
+  console.error("Usage: SEED_USER_PASSWORD='<SECURE_PASSWORD>' npm run db:passwords");
+  process.exit(1);
+}
 
 async function main() {
   const pool = await new sql.ConnectionPool({
